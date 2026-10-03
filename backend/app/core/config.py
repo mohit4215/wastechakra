@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "EcoFleet AI"
     DEBUG: bool = False
 
-    # CORS
+    # CORS — extend via CORS_ORIGINS env var in production
+    # e.g. CORS_ORIGINS=["https://wastechakra.vercel.app","http://localhost:5173"]
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://localhost:3000",
@@ -18,6 +19,12 @@ class Settings(BaseSettings):
         "http://localhost:80",
         "http://localhost",
     ]
+    # Regex covers Vercel preview deployments (*.vercel.app) and Railway (*.railway.app)
+    CORS_ORIGIN_REGEX: str = (
+        r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+        r"|https://[a-zA-Z0-9-]+-[a-zA-Z0-9]+\.vercel\.app"
+        r"|https://[a-zA-Z0-9-]+\.up\.railway\.app"
+    )
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://ecofleet:ecofleet@localhost:5432/ecofleet"

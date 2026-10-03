@@ -14,6 +14,7 @@ import DriverPage from './pages/DriverPage.jsx'
 import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import CitizenReportPage from './pages/CitizenReportPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import UnauthorizedPage from './pages/UnauthorizedPage.jsx'
 
 const NAV_MAIN = [
   { to: '/',          icon: LayoutDashboard, label: 'Dashboard' },
@@ -42,6 +43,8 @@ function AppShell() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Unauthorized — accessible without full auth (user is logged in but wrong role) */}
+      <Route path="/unauthorized" element={<UnauthorizedPage />} />
       {/* Citizen report is public */}
       <Route path="/report" element={
         <div style={{ minHeight: '100vh', background: '#f8fafc' }}>

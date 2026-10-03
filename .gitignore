@@ -53,6 +53,16 @@ htmlcov/
 # Docker
 *.dockerignore
 
+# Vercel
+.vercel/
+frontend/.vercel/
+
+# Railway
+.railway/
+
+# Agent workflow task files (internal — not project code)
+.agents/
+
 # Data (large files)
 backend/data/raw/
 *.csv.gz

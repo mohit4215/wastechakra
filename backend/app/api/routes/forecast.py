@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 
 from app.core.security import get_current_user_token, require_role, TokenData
+from app.core.weather import get_delhi_weather
 from app.data.sample_nodes import SAMPLE_NODES
 from app.ml.forecaster import batch_forecast
 from app.models.schemas import ForecastRequest, ForecastResponse, NodeForecast
@@ -73,6 +74,14 @@ async def daily_forecast(
     if not nodes:
         raise HTTPException(status_code=404, detail=f"No nodes found for zone '{zone}'")
 
+    # Auto-fetch weather from Open-Meteo if no explicit code provided
+    if weather_code == 0:
+        try:
+            wx = await get_delhi_weather(forecast_date)
+            weather_code = wx.get("weather_code", 0)
+        except Exception:
+            pass  # silently keep 0 (clear sky) on failure
+
     results = batch_forecast(nodes, d, weather_code=weather_code, is_festival=is_festival)
     total_vol = round(sum(r["predicted_volume_kg"] for r in results), 1)
     high_risk = sum(1 for r in results if r["risk_level"] in ("high", "critical"))
@@ -84,3 +93,21 @@ async def daily_forecast(
         high_risk_count=high_risk,
         total_predicted_volume_kg=total_vol,
     )
+
+
+@router.get("/weather", summary="Current Delhi weather from Open-Meteo")
+async def get_weather(
+    date: str = Query(default=None, description="ISO date YYYY-MM-DD; defaults to today"),
+    _token: TokenData = Depends(get_current_user_token),
+):
+    """
+    Returns real-time Delhi weather for a given date using the free Open-Meteo API.
+    No API key required.
+    """
+    from datetime import date as date_type
+    target = date or date_type.today().isoformat()
+    try:
+        date_type.fromisoformat(target)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="date must be ISO 8601 (YYYY-MM-DD)")
+    return await get_delhi_weather(target)
