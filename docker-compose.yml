@@ -1,47 +1,112 @@
-version: '3.9'
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EcoFleet AI – Production Docker Compose
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  ecofleet-network:
+    driver: bridge
+
+volumes:
+  timescale_data:
+  redis_data:
 
 services:
-  backend:
-    build: ./backend
-    container_name: ecofleet-backend
-    ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=false
-      - DATABASE_URL=postgresql+asyncpg://ecofleet:ecofleet@db:5432/ecofleet
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./backend:/app
-    restart: unless-stopped
-
-  frontend:
-    build: ./frontend
-    container_name: ecofleet-frontend
-    ports:
-      - "5173:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-
+  # ── TimescaleDB ─────────────────────────────────────────────────────────────
   db:
     image: timescale/timescaledb:latest-pg15
-    container_name: ecofleet-db
+    restart: always
     environment:
       POSTGRES_USER: ecofleet
-      POSTGRES_PASSWORD: ecofleet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: ecofleet
-    ports:
-      - "5432:5432"
     volumes:
-      - ecofleet_pgdata:/var/lib/postgresql/data
+      - timescale_data:/var/lib/postgresql/data
+    networks:
+      - ecofleet-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecofleet"]
+      test: ["CMD-SHELL", "pg_isready -U ecofleet -d ecofleet"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+      start_period: 20s
 
-volumes:
-  ecofleet_pgdata:
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecofleet-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ecofleet-backend:latest
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ecofleet:${POSTGRES_PASSWORD:-changeme}@db:5432/ecofleet
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ecofleet-network
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── Frontend (Nginx) ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    image: ecofleet-frontend:latest
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ecofleet-network
+    ports:
+      - "80:80"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

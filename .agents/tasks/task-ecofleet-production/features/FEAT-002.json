@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Frontend auth gate + fleet UI: create LoginPage, ProtectedRoute, UnauthorizedPage, update App.jsx routing, and add FleetPage add/edit modal with role-based controls. Depends on FEAT-001 (auth guards must exist on backend before frontend route guards are meaningful).",
+  "status": "pending",
+  "steps": [
+    "1. Create frontend/src/pages/LoginPage.jsx: full-screen dark card (#090d16 background, #22c55e accent). Fields: email, password. Submit calls useAuth().login(email, password) → on success navigate('/'), on failure show inline error. Demo credentials section below form with three clickable chips that auto-fill: Admin (admin@ecofleet.in/EcoFleet@2026), Fleet Manager (manager@ecofleet.in/Fleet@2026), Driver (driver1@ecofleet.in/Driver@2026). If isAuthenticated on mount, useEffect redirects to '/'. Use inline style objects consistent with rest of app (no Tailwind/CSS modules).",
+    "2. Create frontend/src/components/common/ProtectedRoute.jsx: checks isLoading (show spinner to prevent flash), then isAuthenticated (redirect to /login if false), then optional allowedRoles prop (redirect to /unauthorized if user.role not in allowedRoles). Use useAuth() from ../../context/AuthContext and Navigate from react-router-dom.",
+    "3. Create frontend/src/pages/UnauthorizedPage.jsx: centered card with ShieldCheck icon, 'Access Restricted' heading, shows current user.role, two buttons: 'Go Back' (useNavigate(-1)) and 'Dashboard' (navigate('/')). Consistent white-card styling.",
+    "4. Update frontend/src/App.jsx: import LoginPage, ProtectedRoute, UnauthorizedPage, Navigate, useLocation from react-router-dom. Add /login route (public, no sidebar). Add /unauthorized route (public, no sidebar). Wrap existing routes: / → ProtectedRoute, /routes → ProtectedRoute, /forecast → ProtectedRoute, /fleet → ProtectedRoute, /driver → ProtectedRoute allowedRoles=['driver','admin'], /analytics → ProtectedRoute allowedRoles=['manager','admin']. /report stays public. Add catch-all <Route path='*' element={<Navigate to='/' replace />}. Use useLocation() to conditionally hide sidebar on /login and /unauthorized paths.",
+    "5. Update frontend/src/pages/FleetPage.jsx: import useAuth, createTruck, updateTruck from correct paths. Add state: showModal, editingTruck, saving. Add handleToggleStatus(truck) that calls updateTruck(truck.truck_id, {is_active: !truck.is_active}) then re-fetches fleet. Add 'Add Truck' button at top right (visible only when user.role === 'manager' || 'admin'). Add Edit button and Set Maintenance/Set Active toggle on each truck card (visible to manager/admin only). Add modal overlay with form fields: truck_id (disabled on edit), registration_number, driver_name, driver_phone, capacity_kg (number), zone (text), is_active (checkbox). Modal save calls createTruck (add mode) or updateTruck (edit mode). Close modal on success and refresh fleet data. Add PlusCircle, Edit2 imports from lucide-react."
+  ],
+  "acceptance_criteria": [
+    "Navigating to http://localhost:5173/ without a token redirects to /login",
+    "LoginPage shows demo credential chips; clicking a chip auto-fills email/password",
+    "Logging in as admin@ecofleet.in/EcoFleet@2026 redirects to dashboard",
+    "Navigating to /analytics as driver@ecofleet.in redirects to /unauthorized",
+    "DriverPage is accessible for driver role but not for citizen role",
+    "FleetPage shows Add Truck button for manager/admin, hides it for driver",
+    "Fleet modal saves a new truck and it appears in the list",
+    "cd frontend && npm run build completes without errors"
+  ],
+  "verification": [
+    "cd frontend && npm run build",
+    "cd frontend && npm run preview -- --port 4174 (run in background, then in another shell): curl -L http://localhost:4174/ should redirect to /login (check response body contains 'Login' or 'EcoFleet')"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

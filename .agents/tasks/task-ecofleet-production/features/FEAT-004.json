@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-004",
+  "type": "chore",
+  "description": "CI, tests, and deployment config: create backend test suite (conftest, test_health, test_auth, test_forecast, test_nodes), fix ci.yml to use SQLite and remove alembic step, create railway.json, .env.example, Procfile, and robots.txt. Depends on FEAT-001 (auth must be enforced before auth tests pass).",
+  "status": "pending",
+  "steps": [
+    "1. Create backend/tests/__init__.py (empty file).",
+    "2. Create backend/pytest.ini with content: [pytest]\\nasyncio_mode = auto\\ntestpaths = tests",
+    "3. Create backend/tests/conftest.py: set os.environ DATABASE_URL='sqlite+aiosqlite:///./test.db' and JWT_SECRET_KEY='test-secret-key-for-ci-only-32characters!!' using os.environ.setdefault before any app imports. Create pytest_asyncio fixture 'client' (scope='session') using httpx.AsyncClient with ASGITransport(app=app) and base_url='http://test'. Create 'auth_headers' fixture (scope='session') that POSTs to /api/auth/login with admin@ecofleet.in/EcoFleet@2026 and returns {'Authorization': 'Bearer <token>'}.",
+    "4. Create backend/tests/test_health.py: single async test test_health() — GET /health, assert status 200, assert body has status=='ok', service=='ecofleet-backend', 'environment' key present.",
+    "5. Create backend/tests/test_auth.py: test_login_admin (POST /api/auth/login with correct creds → 200 + access_token in response). test_login_wrong_password (wrong password → 401). test_get_me (GET /api/auth/me with auth_headers → 200, email=='admin@ecofleet.in', role=='admin'). test_protected_route_no_token (GET /api/nodes/ without token → 401).",
+    "6. Create backend/tests/test_forecast.py: test_daily_forecast (GET /api/forecast/daily?forecast_date=today with auth_headers → 200, 'forecasts' key in response, len>0, first forecast confidence>0). test_forecast_unauthorized (same URL without token → 401).",
+    "7. Create backend/tests/test_nodes.py: test_list_nodes_authenticated (GET /api/nodes/ with auth_headers → 200, total>=25). test_citizen_report_public (POST /api/nodes/NODE-001/report with full CitizenReport JSON body but NO auth header → 200, status=='received').",
+    "8. Fix .github/workflows/ci.yml: remove the entire 'services: postgres:' block from backend-test job. Update env block to: DATABASE_URL=sqlite+aiosqlite:///./test.db, JWT_SECRET_KEY=test-secret-key-for-ci-only-32characters!!, JWT_ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=480, DEBUG=true, FIRST_SUPERUSER_EMAIL=admin@ecofleet.in, FIRST_SUPERUSER_PASSWORD=EcoFleet@2026. Remove the 'Run migrations' step (alembic upgrade head). In 'Install dependencies' step remove the redundant 'pip install pytest pytest-asyncio pytest-cov httpx' line (these are now in requirements.txt). Keep frontend-build and docker-build jobs unchanged.",
+    "9. Create wastechakra/railway.json: JSON object with $schema, build (builder=DOCKERFILE, dockerfilePath=backend/Dockerfile), deploy (startCommand='uvicorn app.main:app --host 0.0.0.0 --port $PORT', healthcheckPath='/health', healthcheckTimeout=300, restartPolicyType=ON_FAILURE, restartPolicyMaxRetries=10).",
+    "10. Create wastechakra/.env.example: document all env vars — DATABASE_URL (PostgreSQL example), JWT_SECRET_KEY (with warning to use strong secret), JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, FIRST_SUPERUSER_EMAIL, FIRST_SUPERUSER_PASSWORD, FIRST_SUPERUSER_FULL_NAME, CORS_ORIGINS (comma-separated list), DEBUG, VITE_API_BASE_URL, VITE_APP_NAME, VITE_APP_VERSION.",
+    "11. Create wastechakra/Procfile: 'web: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2'",
+    "12. Create frontend/public/robots.txt: User-agent: *, Disallow: /api/, Disallow: /login, Allow: /report, Sitemap placeholder comment."
+  ],
+  "acceptance_criteria": [
+    "cd backend && pytest tests/ -v — all tests pass (minimum 8 tests: 1 health + 4 auth + 2 forecast + 2 nodes)",
+    "railway.json is valid JSON",
+    ".env.example exists and documents all required variables",
+    "Procfile exists with correct web: entry",
+    "frontend/public/robots.txt exists",
+    "ci.yml has no 'alembic upgrade head' step and no postgres service"
+  ],
+  "verification": [
+    "cd backend && pytest tests/ -v --tb=short",
+    "python -c \"import json; json.load(open('railway.json')); print('railway.json valid')\" (from wastechakra root)",
+    "cd frontend && npm run build (robots.txt should appear in dist/)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

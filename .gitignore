@@ -41,6 +41,15 @@ dist/
 Thumbs.db
 desktop.ini
 
+# SQLite local fallback DB
+*.db
+ecofleet.db
+
+# Coverage reports
+coverage.xml
+.coverage
+htmlcov/
+
 # Docker
 *.dockerignore
 
@@ -48,4 +57,5 @@ desktop.ini
 backend/data/raw/
 *.csv.gz
 *.pkl
-*.joblib
+# Keep trained model artifacts — exclude only very large ones if needed
+# *.joblib

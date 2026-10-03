@@ -2,9 +2,10 @@
 API Route: /api/forecast — Waste volume forecasting
 """
 from datetime import datetime, date
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 
+from app.core.security import get_current_user_token, require_role, TokenData
 from app.data.sample_nodes import SAMPLE_NODES
 from app.ml.forecaster import batch_forecast
 from app.models.schemas import ForecastRequest, ForecastResponse, NodeForecast
@@ -13,7 +14,10 @@ router = APIRouter()
 
 
 @router.post("/", response_model=ForecastResponse, summary="Generate waste volume forecasts")
-async def generate_forecast(body: ForecastRequest):
+async def generate_forecast(
+    body: ForecastRequest,
+    _token: TokenData = Depends(require_role("manager", "admin")),
+):
     """
     Forecast waste volume for a **single node** on a given date.
     Provide weather_code (WMO standard), is_festival, and is_weekend flags
@@ -51,6 +55,7 @@ async def daily_forecast(
     zone: Optional[str] = Query(None),
     weather_code: int = Query(0, description="WMO code — 0=clear, 61=rain, 95=storm"),
     is_festival: bool = Query(False),
+    _token: TokenData = Depends(require_role("manager", "admin")),
 ):
     """
     Generate waste forecasts for **all nodes** (optionally filtered by zone)

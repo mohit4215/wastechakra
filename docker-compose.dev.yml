@@ -1,0 +1,56 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EcoFleet AI – Development Override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Backend hot-reload ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder          # use builder stage so dev deps are present
+    image: ecofleet-backend:dev
+    command: >
+      uvicorn app.main:app
+      --reload
+      --host 0.0.0.0
+      --port 8000
+      --log-level debug
+    volumes:
+      - ./backend:/app        # live source mount for hot-reload
+    environment:
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+    # Remove resource limits in dev
+    deploy: {}
+
+  # ── Frontend dev server ──────────────────────────────────────────────────────
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules      # anonymous volume prevents host node_modules override
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_APP_NAME: EcoFleet AI (dev)
+    depends_on:
+      - backend
+    # No healthcheck needed in dev; no resource limits either
+    deploy: {}
+
+  # ── Database (expose port for local tooling) ──────────────────────────────────
+  db:
+    ports:
+      - "5432:5432"
+
+  # ── Redis (expose port for local tooling) ────────────────────────────────────
+  redis:
+    ports:
+      - "6379:6379"

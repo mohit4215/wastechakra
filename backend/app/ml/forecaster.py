@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import math
 import os
-import random
 from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -122,7 +121,8 @@ def _heuristic_forecast(
     fill_pct = min(max(fill_pct, 0.05), 1.0)
 
     predicted_volume = round(capacity * fill_pct, 1)
-    confidence = round(random.uniform(0.75, 0.90), 3)
+    # Deterministic confidence derived from the same seed (no random — reproducible)
+    confidence = round(0.75 + (seed / 1000) * 0.15, 3)
 
     factors = {
         "day_of_week_effect": round(day_multiplier - 1.0, 3),

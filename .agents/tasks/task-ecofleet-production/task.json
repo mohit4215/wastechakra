@@ -1,0 +1,7 @@
+{
+  "task_id": "task-ecofleet-production",
+  "task_description": "Make EcoFleet AI production-ready: enforce role-based auth on all API routes, add frontend login/route-guards, fix ML determinism, implement DB-backed fleet and analytics, add weather integration via Open-Meteo free API, write a passing test suite, fix CI, and add deployment config.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

@@ -2,7 +2,7 @@
 Pydantic models for Collection Nodes, Forecasts, and Routes.
 """
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
@@ -143,3 +143,113 @@ class FleetStatus(BaseModel):
     total_trucks: int
     active_trucks: int
     trucks: List[Truck]
+
+
+# ---------------------------------------------------------------------------
+# Auth Schemas
+# ---------------------------------------------------------------------------
+
+class UserRole(str, Enum):
+    admin = "admin"
+    manager = "manager"
+    driver = "driver"
+
+
+class UserBase(BaseModel):
+    email: EmailStr
+    full_name: str
+    role: UserRole = UserRole.driver
+
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=6)
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(UserBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+# ---------------------------------------------------------------------------
+# Node CRUD & Action Schemas
+# ---------------------------------------------------------------------------
+
+class CollectionNodeCreate(BaseModel):
+    node_id: str
+    name: str
+    zone: str
+    latitude: float
+    longitude: float
+    capacity_kg: float
+    waste_types: List[WasteType] = [WasteType.wet, WasteType.dry]
+    population_density: float = 20000.0
+
+
+class CollectionNodeUpdate(BaseModel):
+    name: Optional[str] = None
+    zone: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    capacity_kg: Optional[float] = None
+    waste_types: Optional[List[WasteType]] = None
+    population_density: Optional[float] = None
+
+
+class BinCollectAction(BaseModel):
+    collected_kg: Optional[float] = None
+    notes: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Dispatch & Real-time Execution Schemas
+# ---------------------------------------------------------------------------
+
+class DispatchRouteRequest(BaseModel):
+    routing_date: str
+    zone: Optional[str] = None
+    routes: List[TruckRoute]
+    notes: Optional[str] = None
+
+
+class DispatchResponse(BaseModel):
+    session_id: int
+    status: str
+    dispatched_at: datetime
+    routes_count: int
+    message: str
+
+
+class StopStatusUpdate(BaseModel):
+    truck_id: str
+    stop_index: int
+    status: str = Field("completed", description="pending, in_progress, completed, skipped")
+    collected_kg: Optional[float] = None
+
+
+# ---------------------------------------------------------------------------
+# Citizen Overflow / Bin Issue Report
+# ---------------------------------------------------------------------------
+
+class CitizenReport(BaseModel):
+    node_id: str
+    reporter_name: Optional[str] = "Citizen"
+    reporter_phone: Optional[str] = None
+    issue_type: str = Field("overflow", description="overflow, damaged_bin, odor, street_waste")
+    description: Optional[str] = None
+    estimated_overflow_kg: Optional[float] = 100.0
+
