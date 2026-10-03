@@ -490,9 +490,6 @@ def optimize_routes(
             stop_nodes, depot.lat, depot.lon, depot.name, truck_id, driver,
             truck_capacity_kg=truck_capacity_kg,
         )
-        route["load_utilization_pct"] = round(
-            route["total_waste_kg"] / truck_capacity_kg * 100, 1
-        )
         route_dicts.append(route)
 
     # Sort routes so highest total waste is TRUCK-01

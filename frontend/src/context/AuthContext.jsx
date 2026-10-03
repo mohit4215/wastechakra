@@ -5,6 +5,19 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = 'ecofleet_token';
 const USER_KEY = 'ecofleet_user';
 
+/**
+ * Decode a JWT and check whether it has expired.
+ * Returns true if expired or unparseable.
+ */
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -17,10 +30,16 @@ export function AuthProvider({ children }) {
       const storedToken = localStorage.getItem(TOKEN_KEY);
       const storedUser = localStorage.getItem(USER_KEY);
       if (storedToken && storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setToken(storedToken);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+        // Clear expired sessions instead of restoring them
+        if (isTokenExpired(storedToken)) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+        } else {
+          const parsedUser = JSON.parse(storedUser);
+          setToken(storedToken);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        }
       }
     } catch (err) {
       console.error('Failed to restore session:', err);
@@ -47,7 +66,12 @@ export function AuthProvider({ children }) {
 
       const data = await response.json();
       const accessToken = data.access_token || data.token;
-      const userData = data.user || { email, name: email.split('@')[0], role: 'admin' };
+      // Normalize: Navbar reads user.name, but UserResponse sends full_name
+      const rawUser = data.user || { email, role: 'admin' };
+      const userData = {
+        ...rawUser,
+        name: rawUser.full_name || rawUser.name || email.split('@')[0],
+      };
 
       localStorage.setItem(TOKEN_KEY, accessToken);
       localStorage.setItem(USER_KEY, JSON.stringify(userData));
@@ -78,6 +102,7 @@ export function AuthProvider({ children }) {
     isLoading,
     login,
     logout,
+    isTokenExpired,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

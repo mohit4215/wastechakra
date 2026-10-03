@@ -102,7 +102,10 @@ def _to_schema(t: TruckModel) -> Truck:
 
 
 @router.get("/", response_model=FleetStatus, summary="Get fleet status")
-async def fleet_status(db: AsyncSession = Depends(get_db)):
+async def fleet_status(
+    db: AsyncSession = Depends(get_db),
+    _token: TokenData = Depends(require_role("manager", "admin", "driver")),
+):
     """Return the current fleet status for all registered trucks."""
     db_list = await _db_trucks(db)
     if db_list:
@@ -119,9 +122,12 @@ async def fleet_status(db: AsyncSession = Depends(get_db)):
     response_model=Truck,
     status_code=status.HTTP_201_CREATED,
     summary="Add new truck",
-    dependencies=[Depends(require_role("admin", "manager"))],
 )
-async def add_truck(truck: Truck, db: AsyncSession = Depends(get_db)):
+async def add_truck(
+    truck: Truck,
+    db: AsyncSession = Depends(get_db),
+    _token: TokenData = Depends(require_role("admin", "manager")),
+):
     """Add a new garbage truck to the municipal fleet (admin/manager only)."""
     try:
         stmt = select(TruckModel).where(TruckModel.truck_id == truck.truck_id)
@@ -153,9 +159,13 @@ async def add_truck(truck: Truck, db: AsyncSession = Depends(get_db)):
     "/{truck_id}",
     response_model=Truck,
     summary="Update truck or toggle maintenance",
-    dependencies=[Depends(require_role("admin", "manager"))],
 )
-async def update_truck(truck_id: str, body: TruckUpdate, db: AsyncSession = Depends(get_db)):
+async def update_truck(
+    truck_id: str,
+    body: TruckUpdate,
+    db: AsyncSession = Depends(get_db),
+    _token: TokenData = Depends(require_role("admin", "manager")),
+):
     """Update driver details or toggle active/maintenance status (admin/manager only)."""
     try:
         stmt = select(TruckModel).where(TruckModel.truck_id == truck_id)
@@ -185,9 +195,12 @@ async def update_truck(truck_id: str, body: TruckUpdate, db: AsyncSession = Depe
     "/{truck_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Decommission truck",
-    dependencies=[Depends(require_role("admin"))],
 )
-async def delete_truck(truck_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_truck(
+    truck_id: str,
+    db: AsyncSession = Depends(get_db),
+    _token: TokenData = Depends(require_role("admin")),
+):
     """Decommission a truck from the fleet (admin only)."""
     try:
         stmt = delete(TruckModel).where(TruckModel.truck_id == truck_id)

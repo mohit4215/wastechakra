@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import require_role, TokenData
 from app.db.models import CollectionNodeModel, RouteSession, WasteLog
 
 router = APIRouter()
@@ -76,7 +77,10 @@ def _demo_summary() -> AnalyticsSummary:
 
 
 @router.get("/summary", response_model=AnalyticsSummary, summary="Get municipal waste intelligence summary")
-async def get_analytics_summary(db: AsyncSession = Depends(get_db)):
+async def get_analytics_summary(
+    db: AsyncSession = Depends(get_db),
+    _token: TokenData = Depends(require_role("manager", "admin")),
+):
     """
     Return high-level KPIs for MCD leadership.
     Reads from RouteSession and WasteLog tables; falls back to demo data if empty.

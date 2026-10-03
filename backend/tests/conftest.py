@@ -59,3 +59,36 @@ async def client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
+# Admin token fixture — registers admin and returns Bearer token
+# ---------------------------------------------------------------------------
+
+_ADMIN_EMAIL = "admin_test@ecofleet.ai"
+_ADMIN_PASSWORD = "AdminTest@123"
+_ADMIN_NAME = "Test Admin"
+
+
+@pytest_asyncio.fixture(scope="session")
+async def admin_token(client):
+    """Register an admin user and return a valid JWT token."""
+    # Register (may 400 if already exists — that is fine)
+    await client.post("/api/auth/register", json={
+        "email": _ADMIN_EMAIL,
+        "password": _ADMIN_PASSWORD,
+        "full_name": _ADMIN_NAME,
+        "role": "admin",
+    })
+    login = await client.post("/api/auth/login", json={
+        "email": _ADMIN_EMAIL,
+        "password": _ADMIN_PASSWORD,
+    })
+    data = login.json()
+    return data["access_token"]
+
+
+@pytest_asyncio.fixture(scope="session")
+async def auth_headers(admin_token):
+    """Return Authorization headers dict for an admin user."""
+    return {"Authorization": f"Bearer {admin_token}"}

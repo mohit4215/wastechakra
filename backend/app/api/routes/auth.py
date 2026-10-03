@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,22 +56,14 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token, summary="Login and obtain JWT token")
 async def login(
-    form_data: Optional[OAuth2PasswordRequestForm] = Depends(None),
-    body: Optional[UserLogin] = None,
+    body: UserLogin,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Authenticate user via JSON body or OAuth2 Form and return JWT bearer token.
+    Authenticate user via JSON body and return JWT bearer token.
     """
-    email = None
-    password = None
-
-    if form_data and form_data.username:
-        email = form_data.username
-        password = form_data.password
-    elif body:
-        email = body.email
-        password = body.password
+    email = body.email
+    password = body.password
 
     if not email or not password:
         raise HTTPException(

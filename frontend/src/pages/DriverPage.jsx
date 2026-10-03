@@ -201,7 +201,7 @@ export default function DriverPage() {
                         </span>
                         <span style={styles.metaItem}>
                           <Clock size={13} color="#64748b" />
-                          <span>Est. Arrival: {stop.estimated_arrival || `0${8 + Math.floor(idx * 0.8)}:${idx % 2 === 0 ? '15' : '45'}`}</span>
+                          <span>Est. Arrival: {stop.estimated_arrival || `${String(8 + Math.floor(idx * 0.8)).padStart(2, '0')}:${idx % 2 === 0 ? '15' : '45'}`}</span>
                         </span>
                         <span style={styles.metaItem}>
                           <strong>{Math.round(stop.predicted_volume_kg)} kg</strong> expected

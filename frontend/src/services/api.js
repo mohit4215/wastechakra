@@ -14,7 +14,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Auto-logout on 401 (expired / invalid token)
+// Auto-logout on 401 (expired / invalid token), redirect on 403 (forbidden)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -24,6 +24,10 @@ api.interceptors.response.use(
       localStorage.removeItem('ecofleet_user')
       if (window.location.pathname !== '/login') {
         window.location.replace('/login')
+      }
+    } else if (error.response?.status === 403) {
+      if (window.location.pathname !== '/unauthorized') {
+        window.location.replace('/unauthorized')
       }
     }
     return Promise.reject(error)
