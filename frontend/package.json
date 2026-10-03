@@ -1,0 +1,33 @@
+{
+  "name": "ecofleet-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "EcoFleet AI — Municipal Waste Management Dashboard | WasteChakra 2026",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "axios": "^1.7.2",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "recharts": "^2.12.7",
+    "lucide-react": "^0.395.0",
+    "date-fns": "^3.6.0",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.3.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.3",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7"
+  }
+}

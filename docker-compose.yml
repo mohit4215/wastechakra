@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  backend:
+    build: ./backend
+    container_name: ecofleet-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://ecofleet:ecofleet@db:5432/ecofleet
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: ecofleet-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: ecofleet-db
+    environment:
+      POSTGRES_USER: ecofleet
+      POSTGRES_PASSWORD: ecofleet
+      POSTGRES_DB: ecofleet
+    ports:
+      - "5432:5432"
+    volumes:
+      - ecofleet_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecofleet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  ecofleet_pgdata:

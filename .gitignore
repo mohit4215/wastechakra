@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+dist/
+.next/
+.nuxt/
+*.local
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+*.dockerignore
+
+# Data (large files)
+backend/data/raw/
+*.csv.gz
+*.pkl
+*.joblib

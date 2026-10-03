@@ -1,0 +1,34 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+pydantic-settings==2.2.1
+
+# ML / Data Science
+scikit-learn==1.4.2
+xgboost==2.0.3
+pandas==2.2.2
+numpy==1.26.4
+joblib==1.4.2
+
+# Routing / GIS
+ortools==9.10.4067
+geopy==2.4.1
+shapely==2.0.4
+
+# Database
+sqlalchemy==2.0.30
+asyncpg==0.29.0
+alembic==1.13.1
+
+# HTTP / Async
+httpx==0.27.0
+python-multipart==0.0.9
+
+# Testing
+pytest==8.2.0
+pytest-asyncio==0.23.6
+httpx==0.27.0
+
+# Dev utilities
+python-dotenv==1.0.1
+rich==13.7.1
