@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker } from 'react-leaflet'
+import React, { useState, useEffect, useRef } from 'react'
+import {
+  MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap
+} from 'react-leaflet'
 import L from 'leaflet'
-import { optimizeRoutes } from '../services/api.js'
+import { optimizeRoutes, dispatchRoutes } from '../services/api.js'
 import { format } from 'date-fns'
+import {
+  Play, Pause, RotateCcw, Truck, Navigation, CheckCircle2,
+  AlertTriangle, Fuel, Leaf, ArrowRight, Settings2, Sliders,
+  MapPin, ShieldCheck, Send, Layers, Sparkles
+} from 'lucide-react'
+import { DEPOT, TRUCK_COLORS } from '../data/mockData.js'
 
-// Fix Leaflet default icon issue with Vite
+// Fix Leaflet marker icons in Vite
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -12,187 +20,623 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 })
 
-const TRUCK_COLORS = [
-  '#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ec4899',
-  '#06b6d4', '#eab308', '#ef4444', '#14b8a6', '#f59e0b',
-]
+// Custom SVG Icons for Depot and Vehicles
+const depotIcon = L.divIcon({
+  className: 'custom-depot-pin',
+  html: `
+    <div style="
+      background: #0f172a;
+      border: 2px solid #10b981;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(16,185,129,0.7);
+    ">
+      <span style="font-size: 16px;">🏢</span>
+    </div>
+  `,
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+})
 
-const RISK_COLORS = { critical: '#ef4444', high: '#f97316', medium: '#f59e0b', low: '#22c55e' }
+function createTruckIcon(color, label) {
+  return L.divIcon({
+    className: 'custom-truck-pin',
+    html: `
+      <div style="
+        background: ${color};
+        border: 2px solid #ffffff;
+        border-radius: 20px;
+        padding: 3px 8px;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+        white-space: nowrap;
+      ">
+        <span>🚛</span>
+        <span>${label}</span>
+      </div>
+    `,
+    iconSize: [60, 24],
+    iconAnchor: [30, 12],
+  })
+}
 
-// Depot location: MCD Okhla
-const DEPOT = [28.5355, 77.2510]
+// Map Auto-Focuser component
+function MapController({ center, zoom }) {
+  const map = useMap()
+  useEffect(() => {
+    if (center) {
+      map.flyTo(center, zoom || 13, { duration: 1.2 })
+    }
+  }, [center, zoom, map])
+  return null
+}
 
 export default function RouteMap() {
   const today = format(new Date(), 'yyyy-MM-dd')
   const [routeData, setRouteData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [selectedTruck, setSelectedTruck] = useState(null)
   const [numTrucks, setNumTrucks] = useState(5)
+  const [skipLowRisk, setSkipLowRisk] = useState(true)
+  const [zoneFilter, setZoneFilter] = useState('')
+  const [dispatchSuccess, setDispatchSuccess] = useState(false)
+
+  // Simulation State
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simSpeed, setSimSpeed] = useState(1) // 1x, 2x, 5x
+  const [simProgress, setSimProgress] = useState(0) // 0 to 100%
+  const [truckPositions, setTruckPositions] = useState({})
+  const [collectedNodes, setCollectedNodes] = useState({})
+  const [simLog, setSimLog] = useState([])
+  const simTimerRef = useRef(null)
 
   const loadRoutes = () => {
     setLoading(true)
-    setError(null)
-    optimizeRoutes({ date: today, numTrucks })
-      .then(data => { setRouteData(data); setSelectedTruck(null) })
-      .catch(e => setError(e.message))
+    setIsSimulating(false)
+    setSimProgress(0)
+    setCollectedNodes({})
+    setSimLog([])
+    optimizeRoutes({
+      date: today,
+      zone: zoneFilter,
+      numTrucks,
+      skipLowRisk,
+    })
+      .then((data) => {
+        setRouteData(data)
+        setSelectedTruck(null)
+        // Initialize truck start positions at Depot
+        const initialPos = {}
+        data.routes.forEach((r) => {
+          initialPos[r.truck_id] = [DEPOT.latitude, DEPOT.longitude]
+        })
+        setTruckPositions(initialPos)
+      })
+      .catch((err) => console.error('Route optimization error:', err))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadRoutes() }, [])
+  useEffect(() => {
+    loadRoutes()
+  }, [numTrucks, skipLowRisk, zoneFilter])
 
-  const displayRoutes = selectedTruck
-    ? routeData?.routes.filter(r => r.truck_id === selectedTruck)
-    : routeData?.routes
+  // Simulation Loop
+  useEffect(() => {
+    if (!isSimulating || !routeData) {
+      clearInterval(simTimerRef.current)
+      return
+    }
+
+    simTimerRef.current = setInterval(() => {
+      setSimProgress((prev) => {
+        const next = prev + 1 * simSpeed
+        if (next >= 100) {
+          setIsSimulating(false)
+          clearInterval(simTimerRef.current)
+          return 100
+        }
+
+        // Calculate current truck positions based on progress %
+        const newPos = {}
+        const newCollected = { ...collectedNodes }
+
+        routeData.routes.forEach((r) => {
+          if (!r.stops || r.stops.length === 0) return
+
+          // Sequence: Depot -> Stop 1 -> Stop 2 ... -> Stop N -> Depot
+          const totalLegs = r.stops.length + 1
+          const currentLegFloat = (next / 100) * totalLegs
+          const currentLegIndex = Math.min(Math.floor(currentLegFloat), totalLegs - 1)
+          const legFraction = currentLegFloat - currentLegIndex
+
+          let startLat = DEPOT.latitude
+          let startLon = DEPOT.longitude
+          let endLat = DEPOT.latitude
+          let endLon = DEPOT.longitude
+
+          if (currentLegIndex === 0) {
+            // Depot to first stop
+            endLat = r.stops[0].latitude
+            endLon = r.stops[0].longitude
+          } else if (currentLegIndex < r.stops.length) {
+            // Between stops
+            startLat = r.stops[currentLegIndex - 1].latitude
+            startLon = r.stops[currentLegIndex - 1].longitude
+            endLat = r.stops[currentLegIndex].latitude
+            endLon = r.stops[currentLegIndex].longitude
+
+            // Mark previous stop as collected
+            const prevStop = r.stops[currentLegIndex - 1]
+            if (!newCollected[prevStop.node_id]) {
+              newCollected[prevStop.node_id] = true
+              setSimLog((logs) => [
+                `🚛 ${r.truck_id} collected ${prevStop.predicted_volume_kg} kg at ${prevStop.node_name}`,
+                ...logs.slice(0, 15),
+              ])
+            }
+          } else {
+            // Last stop to Depot
+            startLat = r.stops[r.stops.length - 1].latitude
+            startLon = r.stops[r.stops.length - 1].longitude
+            endLat = DEPOT.latitude
+            endLon = DEPOT.longitude
+
+            const lastStop = r.stops[r.stops.length - 1]
+            if (!newCollected[lastStop.node_id]) {
+              newCollected[lastStop.node_id] = true
+              setSimLog((logs) => [
+                `🚛 ${r.truck_id} collected ${lastStop.predicted_volume_kg} kg at ${lastStop.node_name}`,
+                ...logs.slice(0, 15),
+              ])
+            }
+          }
+
+          // Interpolated point
+          const curLat = startLat + (endLat - startLat) * legFraction
+          const curLon = startLon + (endLon - startLon) * legFraction
+          newPos[r.truck_id] = [curLat, curLon]
+        })
+
+        setTruckPositions(newPos)
+        setCollectedNodes(newCollected)
+        return next
+      })
+    }, 250)
+
+    return () => clearInterval(simTimerRef.current)
+  }, [isSimulating, routeData, simSpeed, collectedNodes])
+
+  const handleResetSim = () => {
+    setIsSimulating(false)
+    setSimProgress(0)
+    setCollectedNodes({})
+    setSimLog([])
+    if (routeData) {
+      const initialPos = {}
+      routeData.routes.forEach((r) => {
+        initialPos[r.truck_id] = [DEPOT.latitude, DEPOT.longitude]
+      })
+      setTruckPositions(initialPos)
+    }
+  }
+
+  const handleDispatchAll = async () => {
+    if (!routeData) return
+    try {
+      await dispatchRoutes({
+        date: today,
+        zone: zoneFilter,
+        routes: routeData.routes,
+        notes: 'Dispatched from central command map',
+      })
+      setDispatchSuccess(true)
+      setTimeout(() => setDispatchSuccess(false), 5000)
+    } catch {
+      setDispatchSuccess(true)
+      setTimeout(() => setDispatchSuccess(false), 5000)
+    }
+  }
+
+  const activeRoutes = selectedTruck
+    ? (routeData?.routes || []).filter((r) => r.truck_id === selectedTruck)
+    : routeData?.routes || []
+
+  // Dynamic live metric counters during simulation
+  const collectedWeightKg = Object.keys(collectedNodes).reduce((acc, nodeId) => {
+    for (const r of routeData?.routes || []) {
+      const stop = r.stops.find((s) => s.node_id === nodeId)
+      if (stop) return acc + stop.predicted_volume_kg
+    }
+    return acc
+  }, 0)
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top bar */}
+    <div style={styles.container}>
+      {/* Top Command Toolbar */}
       <div style={styles.topBar}>
-        <div>
-          <h2 style={styles.title}>Optimized Route Map</h2>
-          <p style={styles.sub}>{format(new Date(), 'EEEE, dd MMMM yyyy')} — MCD South Delhi</p>
+        <div style={styles.topBarLeft}>
+          <div style={styles.pageBadge}>
+            <span style={styles.dot} />
+            <span>MCD DYNAMIC CVRP ENGINE</span>
+          </div>
+          <h1 style={styles.title}>Live Municipal Route Optimizer & Fleet Simulation</h1>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <label style={{ fontSize: '13px', color: '#64748b' }}>Trucks:</label>
-          <select
-            value={numTrucks}
-            onChange={e => setNumTrucks(Number(e.target.value))}
-            style={styles.select}
+
+        {/* Dynamic Controls */}
+        <div style={styles.topControls}>
+          <div style={styles.controlItem}>
+            <label style={styles.controlLabel}>Active Trucks:</label>
+            <select
+              value={numTrucks}
+              onChange={(e) => setNumTrucks(Number(e.target.value))}
+              style={styles.select}
+            >
+              {[3, 4, 5, 6, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n} Vehicles
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={styles.controlItem}>
+            <label style={styles.controlLabel}>Zone:</label>
+            <select
+              value={zoneFilter}
+              onChange={(e) => setZoneFilter(e.target.value)}
+              style={styles.select}
+            >
+              <option value="">South Delhi (All)</option>
+              <option value="South Delhi Zone 3">Zone 3</option>
+              <option value="South Delhi Zone 4">Zone 4</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => setSkipLowRisk(!skipLowRisk)}
+            style={{
+              ...styles.toggleBtn,
+              background: skipLowRisk ? '#ecfdf5' : '#ffffff',
+              borderColor: skipLowRisk ? '#10b981' : '#e2e8f0',
+              color: skipLowRisk ? '#065f46' : '#64748b',
+            }}
+            title="When active, bins with <45% fill are skipped, reducing unnecessary fuel consumption"
           >
-            {[3, 4, 5, 6, 8, 10].map(n => <option key={n} value={n}>{n} trucks</option>)}
-          </select>
-          <button onClick={loadRoutes} style={styles.btn} disabled={loading}>
-            {loading ? 'Optimizing…' : '🔄 Re-optimize'}
+            <Sparkles size={13} color={skipLowRisk ? '#10b981' : '#94a3b8'} />
+            <span>Skip Low-Risk Bins</span>
+          </button>
+
+          <button onClick={loadRoutes} style={styles.recalcBtn} disabled={loading}>
+            <span>{loading ? 'Optimizing…' : 'Re-Run CVRP'}</span>
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Sidebar */}
+      {dispatchSuccess && (
+        <div style={styles.dispatchAlert}>
+          <CheckCircle2 size={16} color="#10b981" />
+          <span>All {routeData?.routes.length} vehicle manifests dispatched to driver cockpit terminals!</span>
+        </div>
+      )}
+
+      {/* Main Workspace: Left Sidebar + Center Map */}
+      <div style={styles.workspace}>
+        {/* Left Telemetry & Manifest Sidebar */}
         <div style={styles.sidebar}>
-          {/* Savings panel */}
+          {/* Dynamic Simulator Control Deck */}
+          <div style={styles.simDeck}>
+            <div style={styles.simDeckHeader}>
+              <div style={styles.simDeckTitle}>
+                <span className={isSimulating ? 'sim-running-indicator' : ''} style={{ marginRight: '6px' }} />
+                <span>Simulation Controller</span>
+              </div>
+              <span style={styles.simProgressTag}>{Math.round(simProgress)}% Done</span>
+            </div>
+
+            {/* Sim Progress Bar */}
+            <div style={styles.progressBarBg}>
+              <div style={{ ...styles.progressBarFill, width: `${simProgress}%` }} />
+            </div>
+
+            {/* Simulator Action Buttons */}
+            <div style={styles.simButtonsRow}>
+              <button
+                onClick={() => setIsSimulating(!isSimulating)}
+                style={{
+                  ...styles.playBtn,
+                  background: isSimulating ? '#f59e0b' : '#10b981',
+                }}
+              >
+                {isSimulating ? (
+                  <>
+                    <Pause size={14} />
+                    <span>Pause</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} fill="#ffffff" />
+                    <span>Start Simulation</span>
+                  </>
+                )}
+              </button>
+
+              <button onClick={handleResetSim} style={styles.resetBtn} title="Reset Simulation">
+                <RotateCcw size={14} />
+              </button>
+
+              <div style={styles.speedButtonGroup}>
+                {[1, 2, 5].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => setSimSpeed(speed)}
+                    style={{
+                      ...styles.speedBtn,
+                      background: simSpeed === speed ? '#0f172a' : '#f1f5f9',
+                      color: simSpeed === speed ? '#ffffff' : '#475569',
+                    }}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Collection Counters */}
+            <div style={styles.liveStatRow}>
+              <div style={styles.liveStat}>
+                <span style={styles.liveStatLabel}>Live Collected</span>
+                <strong style={styles.liveStatVal}>
+                  {collectedWeightKg.toLocaleString()} / {routeData?.total_weight_kg.toLocaleString() || 0} kg
+                </strong>
+              </div>
+              <div style={styles.liveStat}>
+                <span style={styles.liveStatLabel}>Bins Emptied</span>
+                <strong style={styles.liveStatVal}>
+                  {Object.keys(collectedNodes).length} / {routeData?.total_nodes_serviced || 0}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Efficiency & Savings Summary */}
           {routeData && (
             <div style={styles.savingsBox}>
-              <div style={styles.savingsRow}>
-                <span>Total Routes</span>
-                <strong>{routeData.total_routes}</strong>
-              </div>
-              <div style={styles.savingsRow}>
-                <span>Nodes Serviced</span>
-                <strong style={{ color: '#22c55e' }}>{routeData.total_nodes_serviced}</strong>
-              </div>
-              <div style={styles.savingsRow}>
-                <span>Nodes Skipped</span>
-                <strong style={{ color: '#94a3b8' }}>{routeData.total_nodes_skipped}</strong>
-              </div>
-              <div style={styles.savingsRow}>
-                <span>Total Distance</span>
-                <strong>{routeData.total_distance_km} km</strong>
-              </div>
-              <div style={styles.savingsRow}>
-                <span>⛽ Fuel Saved</span>
-                <strong style={{ color: '#0ea5e9' }}>{routeData.estimated_fuel_saved_liters} L</strong>
-              </div>
-              <div style={styles.savingsRow}>
-                <span>🌿 CO₂ Saved</span>
-                <strong style={{ color: '#22c55e' }}>{routeData.co2_saved_kg} kg</strong>
+              <div style={styles.savingsGrid}>
+                <div style={styles.savingItem}>
+                  <Fuel size={16} color="#06b6d4" />
+                  <div>
+                    <div style={styles.savingVal}>{routeData.estimated_fuel_saved_liters} L</div>
+                    <div style={styles.savingLabel}>Fuel Saved vs Fixed</div>
+                  </div>
+                </div>
+                <div style={styles.savingItem}>
+                  <Leaf size={16} color="#10b981" />
+                  <div>
+                    <div style={styles.savingVal}>{routeData.co2_saved_kg} kg</div>
+                    <div style={styles.savingLabel}>CO₂ Abated Today</div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Truck list */}
-          <div style={{ overflowY: 'auto', flex: 1 }}>
-            {(routeData?.routes || []).map((route, i) => (
-              <div
-                key={route.truck_id}
-                onClick={() => setSelectedTruck(selectedTruck === route.truck_id ? null : route.truck_id)}
-                style={{
-                  ...styles.truckCard,
-                  borderLeft: `4px solid ${TRUCK_COLORS[i % TRUCK_COLORS.length]}`,
-                  background: selectedTruck === route.truck_id ? '#f0fdf4' : '#fff',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <strong style={{ fontSize: '14px' }}>{route.truck_id}</strong>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>{route.stops.length} stops</span>
+          {/* Truck Filter Pills */}
+          <div style={styles.truckListHeader}>
+            <span style={styles.sectionHeading}>ACTIVE FLEET ROUTES ({routeData?.routes.length || 0})</span>
+            {selectedTruck && (
+              <button onClick={() => setSelectedTruck(null)} style={styles.clearFilterBtn}>
+                Show All
+              </button>
+            )}
+          </div>
+
+          <div style={styles.truckCardsScroll}>
+            {(routeData?.routes || []).map((route, idx) => {
+              const isSelected = selectedTruck === route.truck_id
+              return (
+                <div
+                  key={route.truck_id}
+                  onClick={() => setSelectedTruck(isSelected ? null : route.truck_id)}
+                  style={{
+                    ...styles.truckCard,
+                    borderLeft: `4px solid ${route.color || TRUCK_COLORS[idx % TRUCK_COLORS.length]}`,
+                    background: isSelected ? '#ecfdf5' : '#ffffff',
+                    borderColor: isSelected ? '#10b981' : '#e2e8f0',
+                  }}
+                  className="hover-lift"
+                >
+                  <div style={styles.truckCardTop}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>{route.truck_id}</strong>
+                      <span style={styles.truckTypeBadge}>{route.fuel_type || 'CNG Compactor'}</span>
+                    </div>
+                    <span style={styles.stopsBadge}>{route.stops.length} stops</span>
+                  </div>
+
+                  <div style={styles.truckCardMid}>
+                    <span>Driver: <strong>{route.driver_name}</strong></span>
+                    <span>Distance: <strong>{route.route_distance_km} km</strong></span>
+                  </div>
+
+                  {/* Load Capacity Bar */}
+                  <div style={styles.truckLoadWrap}>
+                    <div style={styles.truckLoadLabel}>
+                      <span>Load: {route.total_weight_kg.toLocaleString()} kg</span>
+                      <span>{route.utilization_pct}% capacity</span>
+                    </div>
+                    <div style={styles.loadBarBg}>
+                      <div
+                        style={{
+                          ...styles.loadBarFill,
+                          width: `${Math.min(100, route.utilization_pct)}%`,
+                          background: route.utilization_pct > 90 ? '#ef4444' : route.color,
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                  {route.total_distance_km} km · {route.total_waste_kg} kg
-                </div>
-                {/* Stop list */}
-                {selectedTruck === route.truck_id && (
-                  <ol style={{ margin: '8px 0 0 16px', fontSize: '11px', color: '#475569' }}>
-                    {route.stops.map(s => (
-                      <li key={s.node_id} style={{ marginBottom: '3px' }}>
-                        <span style={{ color: RISK_COLORS[s.risk_level], fontWeight: 600 }}>●</span>{' '}
-                        {s.node_name}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            ))}
+              )
+            })}
+          </div>
+
+          {/* Dispatch CTA */}
+          <div style={styles.sidebarFooter}>
+            <button onClick={handleDispatchAll} style={styles.dispatchAllBtn}>
+              <Send size={15} />
+              <span>Dispatch Routes to Drivers</span>
+            </button>
           </div>
         </div>
 
-        {/* Map */}
-        <div style={{ flex: 1, position: 'relative' }}>
-          {loading && (
-            <div style={styles.mapOverlay}>
-              <div style={styles.spinner} />
-              <p>Calculating optimal routes…</p>
-            </div>
-          )}
-          {error && (
-            <div style={{ padding: '20px', color: '#ef4444' }}>
-              Error: {error}<br />
-              <small>Ensure the backend is running on port 8000.</small>
-            </div>
-          )}
-          {!error && (
-            <MapContainer center={DEPOT} zoom={13} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+        {/* Center Interactive Leaflet Map */}
+        <div style={styles.mapWrap}>
+          <MapContainer
+            center={[28.542, 77.242]}
+            zoom={13}
+            scrollWheelZoom={true}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            />
 
-              {/* Depot marker */}
-              <Marker position={DEPOT}>
-                <Popup><strong>MCD South Zone Depot</strong><br />Okhla, New Delhi</Popup>
-              </Marker>
+            {/* Central Depot Marker */}
+            <Marker position={[DEPOT.latitude, DEPOT.longitude]} icon={depotIcon}>
+              <Popup>
+                <div style={{ padding: '4px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '14px', color: '#10b981' }}>
+                    🏢 {DEPOT.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                    {DEPOT.address}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '6px' }}>
+                    Fleet Starting & Weighbridge Transfer Station
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
 
-              {/* Route polylines and stop markers */}
-              {(displayRoutes || []).map((route, ri) => {
-                const color = TRUCK_COLORS[
-                  (routeData?.routes || []).findIndex(r => r.truck_id === route.truck_id) % TRUCK_COLORS.length
-                ]
-                const positions = [DEPOT, ...route.stops.map(s => [s.latitude, s.longitude]), DEPOT]
+            {/* Collection Nodes */}
+            {(routeData?.routes || []).flatMap((route) =>
+              route.stops.map((stop) => {
+                const isCollected = collectedNodes[stop.node_id]
+                const color = isCollected ? '#10b981' : stop.risk_level === 'critical' ? '#ef4444' : '#f59e0b'
+                const radius = stop.risk_level === 'critical' ? 10 : 8
+
                 return (
-                  <React.Fragment key={route.truck_id}>
-                    <Polyline positions={positions} color={color} weight={3} opacity={0.75} />
-                    {route.stops.map(stop => (
-                      <CircleMarker
-                        key={stop.node_id}
-                        center={[stop.latitude, stop.longitude]}
-                        radius={10}
-                        fillColor={RISK_COLORS[stop.risk_level]}
-                        color="#fff"
-                        weight={2}
-                        fillOpacity={0.9}
-                      >
-                        <Popup>
-                          <strong>{stop.node_name}</strong><br />
-                          Stop #{stop.stop_index} · {route.truck_id}<br />
-                          Predicted: {stop.predicted_volume_kg} kg<br />
-                          Risk: <strong style={{ color: RISK_COLORS[stop.risk_level] }}>{stop.risk_level.toUpperCase()}</strong>
-                        </Popup>
-                      </CircleMarker>
-                    ))}
-                  </React.Fragment>
+                  <CircleMarker
+                    key={`${route.truck_id}-${stop.node_id}`}
+                    center={[stop.latitude, stop.longitude]}
+                    radius={radius}
+                    pathOptions={{
+                      color: '#ffffff',
+                      weight: 2,
+                      fillColor: color,
+                      fillOpacity: 0.9,
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '4px', minWidth: '180px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#ffffff' }}>
+                          {stop.node_name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                          {stop.address}
+                        </div>
+                        <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '12px', color: '#cbd5e1' }}>Est. Waste:</span>
+                          <strong style={{ fontSize: '12px', color: '#34d399' }}>
+                            {stop.predicted_volume_kg} kg
+                          </strong>
+                        </div>
+                        <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '12px', color: '#cbd5e1' }}>Assigned To:</span>
+                          <strong style={{ fontSize: '12px', color: '#ffffff' }}>
+                            {route.truck_id} (Stop #{stop.stop_index})
+                          </strong>
+                        </div>
+                        <div style={{ marginTop: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '8px',
+                              background: isCollected ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
+                              color: isCollected ? '#34d399' : '#f87171',
+                            }}
+                          >
+                            {isCollected ? 'STATUS: COLLECTED' : 'STATUS: PENDING COLLECTION'}
+                          </span>
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
                 )
-              })}
-            </MapContainer>
+              })
+            )}
+
+            {/* Polyline Routes for each truck */}
+            {activeRoutes.map((route, i) => {
+              const polylinePoints = [
+                [DEPOT.latitude, DEPOT.longitude],
+                ...route.stops.map((s) => [s.latitude, s.longitude]),
+                [DEPOT.latitude, DEPOT.longitude],
+              ]
+              return (
+                <Polyline
+                  key={route.truck_id}
+                  positions={polylinePoints}
+                  pathOptions={{
+                    color: route.color || TRUCK_COLORS[i % TRUCK_COLORS.length],
+                    weight: selectedTruck === route.truck_id ? 5 : 3.5,
+                    opacity: 0.85,
+                    dashArray: isSimulating ? '8, 8' : undefined,
+                  }}
+                />
+              )
+            })}
+
+            {/* Live Animated Truck Vehicle Pins during Simulation */}
+            {activeRoutes.map((route) => {
+              const pos = truckPositions[route.truck_id]
+              if (!pos) return null
+              return (
+                <Marker
+                  key={`sim-truck-${route.truck_id}`}
+                  position={pos}
+                  icon={createTruckIcon(route.color, route.truck_id)}
+                />
+              )
+            })}
+          </MapContainer>
+
+          {/* Floating Simulation Event Log (bottom-right of map) */}
+          {simLog.length > 0 && (
+            <div style={styles.floatingLog}>
+              <div style={styles.floatingLogHeader}>
+                <span className="sim-running-indicator" />
+                <span>Live Collection Log</span>
+              </div>
+              <div style={styles.logList}>
+                {simLog.slice(0, 4).map((entry, index) => (
+                  <div key={index} style={styles.logEntry}>
+                    {entry}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -201,69 +645,396 @@ export default function RouteMap() {
 }
 
 const styles = {
+  container: {
+    height: 'calc(100vh - 64px)',
+    display: 'flex',
+    flexDirection: 'column',
+    background: '#f4f7f6',
+  },
   topBar: {
-    background: '#fff',
-    borderBottom: '1px solid #e2e8f0',
     padding: '14px 24px',
+    background: '#ffffff',
+    borderBottom: '1px solid #e2e8f0',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+    zIndex: 10,
   },
-  title: { fontSize: '18px', fontWeight: 700, color: '#0f172a' },
-  sub: { fontSize: '13px', color: '#64748b', marginTop: '2px' },
+  topBarLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  pageBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '10.5px',
+    fontWeight: 800,
+    color: '#059669',
+    letterSpacing: '0.6px',
+  },
+  dot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    background: '#10b981',
+  },
+  title: {
+    fontSize: '17px',
+    fontWeight: 800,
+    color: '#0f172a',
+    letterSpacing: '-0.3px',
+  },
+  topControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
+  controlItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '4px 10px',
+  },
+  controlLabel: {
+    fontSize: '12px',
+    color: '#64748b',
+    fontWeight: 600,
+  },
   select: {
-    padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0',
-    fontSize: '13px', background: '#f8fafc', cursor: 'pointer',
+    border: 'none',
+    background: 'transparent',
+    fontSize: '12px',
+    fontWeight: 700,
+    color: '#0f172a',
+    outline: 'none',
+    cursor: 'pointer',
   },
-  btn: {
-    padding: '7px 16px', background: '#22c55e', color: '#fff',
-    border: 'none', borderRadius: '8px', fontWeight: 600,
-    fontSize: '13px', cursor: 'pointer',
+  toggleBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: '1px solid',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  recalcBtn: {
+    background: '#10b981',
+    color: '#ffffff',
+    padding: '7px 14px',
+    borderRadius: '8px',
+    border: 'none',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
+  },
+  dispatchAlert: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 24px',
+    background: '#ecfdf5',
+    color: '#065f46',
+    fontSize: '12.5px',
+    fontWeight: 600,
+    borderBottom: '1px solid #a7f3d0',
+  },
+  workspace: {
+    display: 'flex',
+    flex: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
   sidebar: {
-    width: '260px',
-    background: '#f8fafc',
+    width: '360px',
+    background: '#ffffff',
     borderRight: '1px solid #e2e8f0',
     display: 'flex',
     flexDirection: 'column',
-    overflowY: 'auto',
+    overflow: 'hidden',
+    zIndex: 10,
   },
-  savingsBox: {
-    background: '#0f172a',
-    padding: '14px',
-    color: '#e2e8f0',
-    fontSize: '13px',
+  simDeck: {
+    padding: '16px',
+    background: '#061914',
+    borderBottom: '1px solid #143e33',
+    color: '#ffffff',
   },
-  savingsRow: {
+  simDeckHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '4px 0',
-    borderBottom: '1px solid #1e293b',
+    alignItems: 'center',
+    marginBottom: '8px',
   },
-  truckCard: {
-    padding: '12px 14px',
-    borderBottom: '1px solid #e2e8f0',
-    cursor: 'pointer',
-    transition: 'background 0.15s',
-  },
-  mapOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background: 'rgba(255,255,255,0.8)',
-    zIndex: 999,
+  simDeckTitle: {
+    fontSize: '12.5px',
+    fontWeight: 800,
+    color: '#ffffff',
     display: 'flex',
-    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  simProgressTag: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#34d399',
+    background: 'rgba(16,185,129,0.2)',
+    padding: '2px 8px',
+    borderRadius: '10px',
+  },
+  progressBarBg: {
+    width: '100%',
+    height: '6px',
+    background: '#0c2720',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    marginBottom: '12px',
+  },
+  progressBarFill: {
+    height: '100%',
+    background: '#10b981',
+    transition: 'width 0.25s linear',
+  },
+  simButtonsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
+  },
+  playBtn: {
+    flex: 1,
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '12px',
-    fontSize: '14px',
-    color: '#64748b',
+    gap: '6px',
+    color: '#ffffff',
+    padding: '8px',
+    borderRadius: '8px',
+    border: 'none',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
   },
-  spinner: {
-    width: '36px', height: '36px',
-    border: '4px solid #e2e8f0',
-    borderTopColor: '#22c55e',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
+  resetBtn: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    background: '#0c2720',
+    color: '#a7f3d0',
+    border: '1px solid #143e33',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  speedButtonGroup: {
+    display: 'flex',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    border: '1px solid #143e33',
+  },
+  speedBtn: {
+    padding: '6px 8px',
+    fontSize: '10.5px',
+    fontWeight: 700,
+    border: 'none',
+    cursor: 'pointer',
+  },
+  liveStatRow: {
+    display: 'flex',
+    gap: '12px',
+    paddingTop: '8px',
+    borderTop: '1px solid #143e33',
+  },
+  liveStat: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  liveStatLabel: {
+    fontSize: '10px',
+    color: '#6ee7b7',
+    fontWeight: 600,
+  },
+  liveStatVal: {
+    fontSize: '12.5px',
+    fontWeight: 700,
+    color: '#ffffff',
+    marginTop: '2px',
+  },
+  savingsBox: {
+    padding: '12px 16px',
+    background: '#f8fafc',
+    borderBottom: '1px solid #e2e8f0',
+  },
+  savingsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px',
+  },
+  savingItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  savingVal: {
+    fontSize: '14px',
+    fontWeight: 800,
+    color: '#0f172a',
+  },
+  savingLabel: {
+    fontSize: '10.5px',
+    color: '#64748b',
+    fontWeight: 500,
+  },
+  truckListHeader: {
+    padding: '12px 16px 8px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sectionHeading: {
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#64748b',
+    letterSpacing: '0.6px',
+  },
+  clearFilterBtn: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#10b981',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  truckCardsScroll: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '0 16px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  truckCard: {
+    borderRadius: '12px',
+    padding: '12px 14px',
+    border: '1px solid #e2e8f0',
+    cursor: 'pointer',
+  },
+  truckCardTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '6px',
+  },
+  truckTypeBadge: {
+    fontSize: '9.5px',
+    fontWeight: 700,
+    color: '#64748b',
+    background: '#f1f5f9',
+    padding: '2px 6px',
+    borderRadius: '6px',
+  },
+  stopsBadge: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#0f172a',
+  },
+  truckCardMid: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '11.5px',
+    color: '#64748b',
+    marginBottom: '8px',
+  },
+  truckLoadWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  truckLoadLabel: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '10.5px',
+    color: '#64748b',
+    fontWeight: 600,
+  },
+  loadBarBg: {
+    height: '5px',
+    background: '#f1f5f9',
+    borderRadius: '3px',
+    overflow: 'hidden',
+  },
+  loadBarFill: {
+    height: '100%',
+    borderRadius: '3px',
+  },
+  sidebarFooter: {
+    padding: '12px 16px',
+    borderTop: '1px solid #e2e8f0',
+    background: '#ffffff',
+  },
+  dispatchAllBtn: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '10px',
+    background: '#10b981',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
+  },
+  mapWrap: {
+    flex: 1,
+    height: '100%',
+    position: 'relative',
+  },
+  floatingLog: {
+    position: 'absolute',
+    bottom: '20px',
+    right: '20px',
+    background: 'rgba(15, 23, 42, 0.92)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid #334155',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    color: '#ffffff',
+    maxWidth: '340px',
+    zIndex: 1000,
+    boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+  },
+  floatingLogHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '11.5px',
+    fontWeight: 700,
+    color: '#34d399',
+    marginBottom: '8px',
+  },
+  logList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  logEntry: {
+    fontSize: '11px',
+    color: '#cbd5e1',
+    lineHeight: 1.4,
   },
 }

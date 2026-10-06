@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
-/* EcoFleet AI — Production Design System */
+/* EcoFleet AI — Municipal Corporation of Delhi Design System */
 * {
   margin: 0;
   padding: 0;
@@ -8,14 +8,21 @@
 }
 
 :root {
-  --primary: #22c55e;
-  --primary-hover: #16a34a;
-  --primary-light: #dcfce7;
-  --primary-dark: #15803d;
+  --primary: #10b981;
+  --primary-hover: #059669;
+  --primary-light: #ecfdf5;
+  --primary-dark: #047857;
+  --primary-glow: rgba(16, 185, 129, 0.35);
 
-  --bg-main: #f8fafc;
+  --accent-cyan: #06b6d4;
+  --accent-amber: #f59e0b;
+  --accent-purple: #8b5cf6;
+
+  --bg-main: #f4f7f6;
   --bg-card: #ffffff;
-  --bg-sidebar: #090d16;
+  --bg-sidebar: #061914;
+  --bg-sidebar-card: #0c2720;
+  --sidebar-border: #143e33;
 
   --text-main: #0f172a;
   --text-muted: #64748b;
@@ -27,7 +34,7 @@
   --critical: #ef4444;
   --high: #f97316;
   --medium: #f59e0b;
-  --low: #22c55e;
+  --low: #10b981;
 }
 
 body {
@@ -37,6 +44,10 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+code, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* Scrollbar customization */
@@ -64,24 +75,74 @@ body {
   z-index: 1;
 }
 
+/* Custom modern Leaflet popup styling */
+.leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid #334155 !important;
+  padding: 4px !important;
+}
+.leaflet-popup-tip {
+  background: #0f172a !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
 /* Card hover animation */
 .hover-lift {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08), 0 6px 12px -4px rgba(0, 0, 0, 0.04);
 }
 
-/* Pulse animation for live markers */
+/* Animations */
 @keyframes pulse-dot {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes pulse-critical {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@keyframes route-flow {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
 }
 
 .live-pulse {
   animation: pulse-dot 2s infinite;
+}
+
+.critical-pulse {
+  animation: pulse-critical 1.6s infinite;
+}
+
+.sim-running-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse-dot 1.5s infinite;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 /* Button micro-interactions */
@@ -90,5 +151,5 @@ button {
   transition: all 0.15s ease-in-out;
 }
 button:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }

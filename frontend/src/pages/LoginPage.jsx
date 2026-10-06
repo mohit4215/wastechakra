@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Leaf, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Leaf, LogIn, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 
 export default function LoginPage() {
@@ -12,13 +12,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Already authenticated? Skip to dashboard
   useEffect(() => {
     if (!authLoading && isAuthenticated) navigate('/', { replace: true })
   }, [isAuthenticated, authLoading, navigate])
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     setError(null)
     setLoading(true)
     const result = await login(email.trim(), password)
@@ -30,22 +29,30 @@ export default function LoginPage() {
     }
   }
 
+  const handleDemoLogin = () => {
+    setEmail('admin@ecofleet.ai')
+    setPassword('EcoFleet@2026')
+    handleSubmit()
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        {/* Logo */}
+        {/* Brand */}
         <div style={styles.logoRow}>
           <div style={styles.logoIcon}>
-            <Leaf size={28} color="#22c55e" strokeWidth={2.5} />
+            <Leaf size={26} color="#10b981" strokeWidth={2.5} />
           </div>
           <div>
             <div style={styles.logoTitle}>EcoFleet AI</div>
-            <div style={styles.logoSub}>MCD Route Optimizer — WasteChakra 2026</div>
+            <div style={styles.logoSub}>MCD Municipal Router · WasteChakra 2026</div>
           </div>
         </div>
 
-        <h1 style={styles.heading}>Sign in to your account</h1>
-        <p style={styles.subheading}>Fleet managers and drivers use their MCD credentials.</p>
+        <h1 style={styles.heading}>Command Portal Sign In</h1>
+        <p style={styles.subheading}>
+          Access fleet dispatch, AI route optimization, and SWM 2026 compliance analytics.
+        </p>
 
         {error && (
           <div style={styles.errorBox}>
@@ -54,13 +61,25 @@ export default function LoginPage() {
           </div>
         )}
 
+        {/* 1-Click Demo Login */}
+        <button type="button" onClick={handleDemoLogin} style={styles.demoLoginBtn}>
+          <Sparkles size={16} color="#047857" />
+          <span>Quick Evaluator Access (1-Click Demo)</span>
+        </button>
+
+        <div style={styles.dividerRow}>
+          <div style={styles.dividerLine} />
+          <span style={styles.dividerText}>or sign in with credentials</span>
+          <div style={styles.dividerLine} />
+        </div>
+
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.field}>
-            <label style={styles.label}>Email address</label>
+            <label style={styles.label}>Official MCD Email</label>
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
               style={styles.input}
@@ -74,7 +93,7 @@ export default function LoginPage() {
               <input
                 type={showPw ? 'text' : 'password'}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
                 style={{ ...styles.input, paddingRight: '44px' }}
@@ -82,7 +101,7 @@ export default function LoginPage() {
               />
               <button
                 type="button"
-                onClick={() => setShowPw(v => !v)}
+                onClick={() => setShowPw((v) => !v)}
                 style={styles.eyeBtn}
                 tabIndex={-1}
               >
@@ -93,21 +112,26 @@ export default function LoginPage() {
 
           <button type="submit" disabled={loading} style={styles.submitBtn}>
             {loading ? (
-              <span>Signing in…</span>
+              <span>Connecting to Dispatch…</span>
             ) : (
               <>
                 <LogIn size={16} />
-                <span>Sign in</span>
+                <span>Enter Command Console</span>
               </>
             )}
           </button>
         </form>
 
-        {/* Demo credentials hint */}
-        <div style={styles.demoBox}>
-          <strong>Demo credentials:</strong>
-          <div style={styles.credRow}><span>Email:</span><code>admin@ecofleet.ai</code></div>
-          <div style={styles.credRow}><span>Password:</span><code>EcoFleet@2026</code></div>
+        <div style={styles.demoHintBox}>
+          <strong>Default Evaluation Credentials:</strong>
+          <div style={styles.hintRow}>
+            <span>Email:</span>
+            <code>admin@ecofleet.ai</code>
+          </div>
+          <div style={styles.hintRow}>
+            <span>Password:</span>
+            <code>EcoFleet@2026</code>
+          </div>
         </div>
       </div>
     </div>
@@ -117,7 +141,7 @@ export default function LoginPage() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+    background: 'radial-gradient(circle at top center, #0c2720 0%, #061914 50%, #030d0b 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -125,24 +149,24 @@ const styles = {
   },
   card: {
     background: '#ffffff',
-    borderRadius: '20px',
-    padding: '40px',
+    borderRadius: '24px',
+    padding: '38px',
     width: '100%',
-    maxWidth: '420px',
-    boxShadow: '0 25px 50px rgba(0,0,0,0.4)',
+    maxWidth: '440px',
+    boxShadow: '0 25px 60px rgba(0,0,0,0.45)',
   },
   logoRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '14px',
-    marginBottom: '28px',
+    gap: '12px',
+    marginBottom: '24px',
   },
   logoIcon: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '14px',
-    background: 'rgba(34,197,94,0.1)',
-    border: '1px solid rgba(34,197,94,0.25)',
+    width: '44px',
+    height: '44px',
+    borderRadius: '12px',
+    background: '#ecfdf5',
+    border: '1px solid #a7f3d0',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -159,15 +183,49 @@ const styles = {
     fontWeight: 500,
   },
   heading: {
-    fontSize: '22px',
-    fontWeight: 700,
+    fontSize: '20px',
+    fontWeight: 800,
     color: '#0f172a',
-    marginBottom: '6px',
+    marginBottom: '4px',
   },
   subheading: {
     fontSize: '13px',
     color: '#64748b',
-    marginBottom: '24px',
+    marginBottom: '20px',
+    lineHeight: 1.4,
+  },
+  demoLoginBtn: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '12px',
+    background: '#ecfdf5',
+    color: '#047857',
+    border: '1.5px solid #a7f3d0',
+    borderRadius: '12px',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginBottom: '16px',
+    transition: 'all 0.15s ease',
+  },
+  dividerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    margin: '12px 0 18px',
+  },
+  dividerLine: {
+    flex: 1,
+    height: '1px',
+    background: '#e2e8f0',
+  },
+  dividerText: {
+    fontSize: '11px',
+    color: '#94a3b8',
+    fontWeight: 600,
   },
   errorBox: {
     background: '#fef2f2',
@@ -178,34 +236,33 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    fontSize: '13px',
+    fontSize: '12.5px',
     color: '#dc2626',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: '14px',
   },
   field: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
+    gap: '5px',
   },
   label: {
-    fontSize: '13px',
-    fontWeight: 600,
+    fontSize: '12px',
+    fontWeight: 700,
     color: '#374151',
   },
   input: {
     padding: '11px 14px',
     borderRadius: '10px',
     border: '1px solid #d1d5db',
-    fontSize: '14px',
+    fontSize: '13.5px',
     color: '#0f172a',
-    background: '#f9fafb',
+    background: '#f8fafc',
     outline: 'none',
     width: '100%',
-    boxSizing: 'border-box',
   },
   eyeBtn: {
     position: 'absolute',
@@ -218,34 +275,33 @@ const styles = {
     padding: '4px',
   },
   submitBtn: {
-    marginTop: '4px',
+    marginTop: '6px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
-    padding: '13px',
-    background: '#22c55e',
-    color: '#fff',
+    padding: '12px',
+    background: '#10b981',
+    color: '#ffffff',
     border: 'none',
     borderRadius: '12px',
-    fontSize: '15px',
+    fontSize: '14px',
     fontWeight: 700,
     cursor: 'pointer',
-    boxShadow: '0 4px 14px rgba(34,197,94,0.35)',
-    transition: 'all 0.15s',
+    boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
   },
-  demoBox: {
-    marginTop: '24px',
+  demoHintBox: {
+    marginTop: '22px',
     background: '#f8fafc',
     border: '1px solid #e2e8f0',
     borderRadius: '12px',
-    padding: '14px 16px',
-    fontSize: '12px',
+    padding: '12px 14px',
+    fontSize: '11.5px',
     color: '#475569',
   },
-  credRow: {
+  hintRow: {
     display: 'flex',
-    gap: '8px',
+    gap: '6px',
     marginTop: '4px',
     alignItems: 'center',
   },
