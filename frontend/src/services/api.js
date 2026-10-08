@@ -78,31 +78,94 @@ api.interceptors.response.use(
   }
 )
 
-// In-memory state for local additions & updates during simulation/session
-let localNodes = [...SAMPLE_NODES]
-let localTrucks = [...SEED_TRUCKS]
-let reportedIssues = [
-  {
-    ticket_id: 'TICKET-MCD-2026-0891',
-    node_id: 'NODE-001',
-    node_name: 'Lajpat Nagar Market Bin Cluster',
-    issue_type: 'overflow',
-    description: 'Festive shopping crowd overflow near central gate',
-    status: 'In Progress (TRUCK-01 En Route)',
-    reported_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    reporter_name: 'Vikram Joshi',
-  },
-  {
-    ticket_id: 'TICKET-MCD-2026-0890',
-    node_id: 'NODE-017',
-    node_name: 'Saket Select Citywalk Area',
-    issue_type: 'odour',
-    description: 'Heavy wet waste accumulation from food court bins',
-    status: 'Resolved',
-    reported_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-    reporter_name: 'Pooja Rawat',
-  },
-]
+// Persistent localStorage helpers for interactive simulation
+const getStoredNodes = () => {
+  try {
+    const saved = localStorage.getItem('ecofleet_nodes')
+    if (saved) return JSON.parse(saved)
+  } catch (e) {
+    console.warn('Could not read ecofleet_nodes:', e)
+  }
+  return [...SAMPLE_NODES]
+}
+
+const getStoredTrucks = () => {
+  try {
+    const saved = localStorage.getItem('ecofleet_trucks')
+    if (saved) return JSON.parse(saved)
+  } catch (e) {
+    console.warn('Could not read ecofleet_trucks:', e)
+  }
+  return [...SEED_TRUCKS]
+}
+
+const getStoredIssues = () => {
+  try {
+    const saved = localStorage.getItem('ecofleet_issues')
+    if (saved) return JSON.parse(saved)
+  } catch (e) {
+    console.warn('Could not read ecofleet_issues:', e)
+  }
+  return [
+    {
+      ticket_id: 'TICKET-MCD-2026-0891',
+      node_id: 'NODE-001',
+      node_name: 'Lajpat Nagar Market Bin Cluster',
+      issue_type: 'overflow',
+      description: 'Festive shopping crowd overflow near central gate',
+      status: 'In Progress (TRUCK-01 En Route)',
+      reported_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+      reporter_name: 'Vikram Joshi',
+    },
+    {
+      ticket_id: 'TICKET-MCD-2026-0890',
+      node_id: 'NODE-017',
+      node_name: 'Saket Select Citywalk Area',
+      issue_type: 'odour',
+      description: 'Heavy wet waste accumulation from food court bins',
+      status: 'Resolved',
+      reported_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+      reporter_name: 'Pooja Rawat',
+    },
+  ]
+}
+
+// In-memory + persistent state
+let localNodes = getStoredNodes()
+let localTrucks = getStoredTrucks()
+let reportedIssues = getStoredIssues()
+
+export const saveLocalNodes = (nodes) => {
+  localNodes = nodes
+  try {
+    localStorage.setItem('ecofleet_nodes', JSON.stringify(nodes))
+  } catch (e) {}
+}
+
+export const saveLocalTrucks = (trucks) => {
+  localTrucks = trucks
+  try {
+    localStorage.setItem('ecofleet_trucks', JSON.stringify(trucks))
+  } catch (e) {}
+}
+
+export const saveLocalIssues = (issues) => {
+  reportedIssues = issues
+  try {
+    localStorage.setItem('ecofleet_issues', JSON.stringify(issues))
+  } catch (e) {}
+}
+
+export const resetMCDFactoryData = () => {
+  localNodes = [...SAMPLE_NODES]
+  localTrucks = [...SEED_TRUCKS]
+  try {
+    localStorage.removeItem('ecofleet_nodes')
+    localStorage.removeItem('ecofleet_trucks')
+    localStorage.removeItem('ecofleet_issues')
+  } catch (e) {}
+  return { nodes: localNodes, trucks: localTrucks }
+}
 
 // ──────────────────────────────────────────────
 // Auth API
@@ -182,6 +245,7 @@ export const createNode = async (nodeData) => {
   } catch {
     const newNode = { ...nodeData, node_id: `NODE-0${localNodes.length + 1}` }
     localNodes.push(newNode)
+    saveLocalNodes(localNodes)
     return newNode
   }
 }
@@ -192,6 +256,7 @@ export const updateNode = async (nodeId, nodeData) => {
     return res.data
   } catch {
     localNodes = localNodes.map(n => (n.node_id === nodeId ? { ...n, ...nodeData } : n))
+    saveLocalNodes(localNodes)
     return { ...nodeData, node_id: nodeId }
   }
 }
@@ -202,6 +267,7 @@ export const deleteNode = async (nodeId) => {
     return res.data
   } catch {
     localNodes = localNodes.filter(n => n.node_id !== nodeId)
+    saveLocalNodes(localNodes)
     return { success: true, node_id: nodeId }
   }
 }
@@ -220,6 +286,7 @@ export const triggerBinOverflow = (nodeId) => {
     }
     return n
   })
+  saveLocalNodes(localNodes)
   return localNodes.find(n => n.node_id === nodeId)
 }
 
@@ -243,9 +310,11 @@ export const reportBinIssue = async (nodeId, reportData) => {
     const res = await api.post(`/nodes/${nodeId}/report`, reportData)
     return res.data
   } catch {
+    const matchedNode = localNodes.find(n => n.node_id === nodeId)
     const ticket = {
       ticket_id: `TICKET-MCD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       node_id: nodeId,
+      node_name: matchedNode ? matchedNode.name : nodeId,
       issue_type: reportData.issue_type || 'overflow',
       description: reportData.description || '',
       reporter_name: reportData.reporter_name || 'Citizen',
@@ -254,7 +323,33 @@ export const reportBinIssue = async (nodeId, reportData) => {
       status: 'Queued for Next Collection Cycle',
     }
     reportedIssues.unshift(ticket)
+    saveLocalIssues(reportedIssues)
+
+    // Escalate bin fill risk in municipal network
+    if (reportData.issue_type === 'overflow' || !reportData.issue_type) {
+      localNodes = localNodes.map(n => {
+        if (n.node_id === nodeId) {
+          return {
+            ...n,
+            historical_avg_kg: Math.max(n.historical_avg_kg || 300, Math.round(n.capacity_kg * 1.25)),
+            is_overflow: true,
+          }
+        }
+        return n
+      })
+      saveLocalNodes(localNodes)
+    }
+
     return ticket
+  }
+}
+
+export const fetchReportedIssues = async () => {
+  try {
+    const res = await api.get('/reports/')
+    return res.data
+  } catch {
+    return reportedIssues
   }
 }
 
@@ -308,6 +403,7 @@ export const optimizeRoutes = async ({
       weatherCode,
       isFestival,
       customNodes: localNodes,
+      customTrucks: localTrucks,
     })
   }
 }
@@ -395,6 +491,7 @@ export const createTruck = async (truckData) => {
       status: 'Ready at Depot',
     }
     localTrucks.push(newTruck)
+    saveLocalTrucks(localTrucks)
     return newTruck
   }
 }
@@ -405,6 +502,7 @@ export const updateTruck = async (truckId, updateData) => {
     return res.data
   } catch {
     localTrucks = localTrucks.map(t => (t.truck_id === truckId ? { ...t, ...updateData } : t))
+    saveLocalTrucks(localTrucks)
     return localTrucks.find(t => t.truck_id === truckId)
   }
 }
@@ -415,6 +513,7 @@ export const deleteTruck = async (truckId) => {
     return res.data
   } catch {
     localTrucks = localTrucks.filter(t => t.truck_id !== truckId)
+    saveLocalTrucks(localTrucks)
     return { success: true, truck_id: truckId }
   }
 }

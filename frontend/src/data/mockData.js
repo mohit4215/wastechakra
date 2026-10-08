@@ -498,6 +498,7 @@ export function solveCVRP({
   weatherCode = 0,
   isFestival = false,
   customNodes = null,
+  customTrucks = null,
 }) {
   const forecastData = generateDailyForecast({ date, zone, weatherCode, isFestival, customNodes })
   let candidateNodes = [...forecastData.forecasts]
@@ -510,7 +511,8 @@ export function solveCVRP({
   }
 
   // Active trucks pool
-  const activeTruckList = SEED_TRUCKS.filter(t => t.is_active).slice(0, numTrucks)
+  const truckPool = customTrucks && customTrucks.length > 0 ? customTrucks : SEED_TRUCKS
+  const activeTruckList = truckPool.filter(t => t.is_active).slice(0, numTrucks)
   const routes = []
   const unassignedNodes = [...candidateNodes]
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { fetchFleet, updateTruck, createTruck } from '../services/api.js'
+import { fetchFleet, updateTruck, createTruck, deleteTruck, resetMCDFactoryData } from '../services/api.js'
 import {
   Truck, CheckCircle, XCircle, BatteryCharging, Fuel, Plus,
-  Phone, User, ShieldCheck, MapPin, Search, AlertCircle, Wrench
+  Phone, User, ShieldCheck, MapPin, Search, AlertCircle, Wrench,
+  Trash2, RotateCcw, TrendingDown, IndianRupee, Zap, Sliders
 } from 'lucide-react'
 
 export default function FleetPage() {
@@ -11,6 +12,7 @@ export default function FleetPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [fuelPrice, setFuelPrice] = useState(89.6)
   const [newTruckForm, setNewTruckForm] = useState({
     registration_number: 'DL-1C-0007',
     driver_name: '',
@@ -43,6 +45,20 @@ export default function FleetPage() {
         t.truck_id === truck.truck_id ? { ...t, is_active: !truck.is_active } : t
       ).filter((t) => t.is_active).length,
     }))
+  }
+
+  const handleDeleteTruck = async (truckId) => {
+    if (window.confirm(`Are you sure you want to decommission ${truckId} from active municipal service?`)) {
+      await deleteTruck(truckId)
+      loadFleet()
+    }
+  }
+
+  const handleResetDefaults = () => {
+    if (window.confirm('Reset all vehicle fleet records to MCD factory defaults?')) {
+      resetMCDFactoryData()
+      loadFleet()
+    }
   }
 
   const handleCreateTruck = async (e) => {
@@ -80,6 +96,11 @@ export default function FleetPage() {
 
   const totalCapacity = (fleet?.trucks || []).reduce((acc, t) => acc + (t.capacity_kg || 5000), 0)
   const evCount = (fleet?.trucks || []).filter((t) => t.fuel_type?.includes('EV') || t.fuel_type?.includes('Electric')).length
+  const activeTrucksCount = fleet?.active_trucks ?? 5
+  const dailyLitersSaved = Math.round(22.4 * (activeTrucksCount / 5) * 10) / 10
+  const dailyRupeesSaved = Math.round(dailyLitersSaved * fuelPrice)
+  const monthlySavingsInLakhs = Math.round(((dailyRupeesSaved * 26) / 100000) * 100) / 100
+  const monthlyCo2AbatedTonnes = Math.round(((dailyLitersSaved * 2.68 * 26) / 1000) * 10) / 10
 
   return (
     <div style={styles.container}>
@@ -96,10 +117,16 @@ export default function FleetPage() {
           </p>
         </div>
 
-        <button onClick={() => setShowAddModal(true)} style={styles.addBtn}>
-          <Plus size={16} />
-          <span>Register Vehicle</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={handleResetDefaults} style={styles.resetBtn} title="Reset fleet to initial MCD state">
+            <RotateCcw size={14} />
+            <span>Reset Defaults</span>
+          </button>
+          <button onClick={() => setShowAddModal(true)} style={styles.addBtn}>
+            <Plus size={16} />
+            <span>Register Vehicle</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Ribbon */}
@@ -141,6 +168,52 @@ export default function FleetPage() {
           <div>
             <div style={styles.kpiVal}>{evCount} EVs</div>
             <div style={styles.kpiLabel}>Zero-Emission Fleet</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Municipal OPEX & Fuel Savings Simulator */}
+      <div style={styles.simulatorCard}>
+        <div style={styles.simHeader}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Zap size={18} color="#10b981" />
+            <strong style={{ fontSize: '14px', color: '#0f172a' }}>
+              Municipal OPEX & Fuel Cost Savings Simulator
+            </strong>
+          </div>
+          <span style={styles.simBadge}>Dynamic CVRP Optimization Yield</span>
+        </div>
+
+        <div style={styles.simBody}>
+          <div style={styles.simControl}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>Delhi Diesel Baseline (₹/Liter):</span>
+              <strong style={{ fontSize: '13px', color: '#0f172a' }}>₹{fuelPrice.toFixed(1)}/L</strong>
+            </div>
+            <input
+              type="range"
+              min="80"
+              max="110"
+              step="0.5"
+              value={fuelPrice}
+              onChange={(e) => setFuelPrice(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#10b981', cursor: 'pointer' }}
+            />
+          </div>
+
+          <div style={styles.simMetrics}>
+            <div style={styles.simStat}>
+              <div style={styles.simStatVal}>₹{dailyRupeesSaved.toLocaleString('en-IN')}</div>
+              <div style={styles.simStatLabel}>Daily Fuel Saved</div>
+            </div>
+            <div style={styles.simStat}>
+              <div style={{ ...styles.simStatVal, color: '#059669' }}>₹{monthlySavingsInLakhs} Lakhs</div>
+              <div style={styles.simStatLabel}>Est. Monthly Budget Saved</div>
+            </div>
+            <div style={styles.simStat}>
+              <div style={{ ...styles.simStatVal, color: '#0284c7' }}>{monthlyCo2AbatedTonnes} MT</div>
+              <div style={styles.simStatLabel}>Monthly CO₂ Abated</div>
+            </div>
           </div>
         </div>
       </div>
@@ -240,6 +313,22 @@ export default function FleetPage() {
                 </strong>
               </div>
 
+              {/* Visual gauge bar */}
+              <div style={styles.batteryTrack}>
+                <div
+                  style={{
+                    ...styles.batteryFill,
+                    width: `${truck.battery_pct || 85}%`,
+                    background:
+                      (truck.battery_pct || 85) > 50
+                        ? '#10b981'
+                        : (truck.battery_pct || 85) > 20
+                        ? '#f59e0b'
+                        : '#ef4444',
+                  }}
+                />
+              </div>
+
               <div style={styles.metricRow}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MapPin size={14} color="#64748b" />
@@ -273,9 +362,18 @@ export default function FleetPage() {
                 </div>
               </div>
 
-              <a href={`tel:${truck.driver_phone}`} style={styles.callBtn} title="Call Driver">
-                <Phone size={13} />
-              </a>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <a href={`tel:${truck.driver_phone}`} style={styles.callBtn} title="Call Driver">
+                  <Phone size={13} />
+                </a>
+                <button
+                  onClick={() => handleDeleteTruck(truck.truck_id)}
+                  style={styles.deleteTruckBtn}
+                  title="Decommission vehicle"
+                >
+                  <Trash2 size={13} color="#ef4444" />
+                </button>
+              </div>
             </div>
 
             {/* Maintenance Toggle Action */}
@@ -705,6 +803,101 @@ const styles = {
     color: '#ffffff',
     fontWeight: 700,
     fontSize: '13px',
+    cursor: 'pointer',
+  },
+  resetBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '9px 14px',
+    borderRadius: '10px',
+    border: '1px solid #cbd5e1',
+    background: '#ffffff',
+    color: '#475569',
+    fontSize: '12.5px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  simulatorCard: {
+    background: '#ffffff',
+    borderRadius: '14px',
+    border: '1px solid #e2e8f0',
+    padding: '18px 22px',
+    marginBottom: '20px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+  },
+  simHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginBottom: '14px',
+  },
+  simBadge: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#059669',
+    background: '#d1fae5',
+    padding: '3px 10px',
+    borderRadius: '12px',
+  },
+  simBody: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(240px, 1fr) 2fr',
+    gap: '24px',
+    alignItems: 'center',
+  },
+  simControl: {
+    background: '#f8fafc',
+    borderRadius: '10px',
+    padding: '12px 14px',
+    border: '1px solid #f1f5f9',
+  },
+  simMetrics: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '12px',
+  },
+  simStat: {
+    background: '#f8fafc',
+    borderRadius: '10px',
+    padding: '10px 14px',
+    border: '1px solid #f1f5f9',
+  },
+  simStatVal: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#0f172a',
+  },
+  simStatLabel: {
+    fontSize: '11px',
+    color: '#64748b',
+    marginTop: '2px',
+  },
+  batteryTrack: {
+    width: '100%',
+    height: '6px',
+    background: '#e2e8f0',
+    borderRadius: '3px',
+    overflow: 'hidden',
+    marginTop: '2px',
+  },
+  batteryFill: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.3s ease',
+  },
+  deleteTruckBtn: {
+    width: '30px',
+    height: '30px',
+    borderRadius: '8px',
+    background: '#fef2f2',
+    border: '1px solid #fee2e2',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     cursor: 'pointer',
   },
 }
