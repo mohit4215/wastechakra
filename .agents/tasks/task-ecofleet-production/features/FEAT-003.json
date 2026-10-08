@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Data persistence + weather integration: seed demo users and trucks to DB, port fleet.py to DB-backed queries, implement real analytics from DB, fix stop/status persistence, add Open-Meteo weather module, wire weather to forecast.py, and update Navbar weather chip. Independent of FEAT-002 on the backend side; depends on FEAT-001 for auth guards already in place.",
+  "status": "pending",
+  "steps": [
+    "1. Update backend/app/core/database.py init_db(): add demo user seeding block after existing admin user seed. Seed three users: manager@ecofleet.in (role='manager', password='Fleet@2026', full_name='Fleet Manager'), driver1@ecofleet.in (role='driver', password='Driver@2026', full_name='Ramesh Kumar'), citizen@ecofleet.in (role='citizen', password='Citizen@2026', full_name='Delhi Citizen'). For each, check if email exists before inserting (use select(db_models.User).where(User.email == demo['email'])). Add truck seeding block: check if any truck exists (select Truck limit 1), if not insert 5 trucks matching _TRUCKS in fleet.py: TRUCK-01 through TRUCK-05 with matching registration numbers, driver names, phone numbers, capacities, zones, and is_active values.",
+    "2. Port backend/app/api/routes/fleet.py to async SQLAlchemy: add imports for AsyncSession, select, delete, get_db, and TruckModel (from app.db.models import Truck as TruckModel). Add 'import logging; logger = logging.getLogger(__name__)'. Rewrite fleet_status() to query TruckModel from DB first, fall back to _TRUCKS list on exception. Rewrite add_truck() to insert TruckModel into DB, append to _TRUCKS as fallback. Rewrite update_truck() to update DB row via select+modify+commit, update _TRUCKS as fallback. Rewrite delete_truck() to delete from DB, remove from _TRUCKS as fallback. All DB operations wrapped in try/except with logger.warning on failure.",
+    "3. Implement real analytics in backend/app/api/routes/analytics.py: add imports for Depends, AsyncSession, func, select, desc, get_db, WasteLog, RouteSession, CollectionNodeModel (from app.db.models). Add 'db: AsyncSession = Depends(get_db)' to get_analytics_summary(). Query: total_waste=sum(WasteLog.actual_waste_kg), total_fuel=sum(RouteSession.fuel_saved_liters), total_co2=sum(RouteSession.co2_saved_kg), overflow_count=count(WasteLog where fill_percentage>=100), active_nodes=count(CollectionNodeModel). For 7-day trend: query RouteSession grouped by session_date for last 7 days; if no sessions fall back to current arithmetic formula. For zone breakdown: query WasteLog joined to CollectionNodeModel grouped by zone; if no logs fall back to hardcoded zones. If total_waste==0 AND total_fuel==0, use entirely mock data (fresh DB case). Compute swm_compliance_rate=(1 - overflow_count/max(total_logs,1))*100 clamped to [0,100], fallback to 98.6 if no data.",
+    "4. Implement /routing/stop/status DB persistence in backend/app/api/routes/routing.py: rewrite update_stop_status() to query TruckAssignment by truck_id (most recent by created_at desc), mutate stops_data JSON list to update the matching stop_index entry with status/collected_kg/completed_at, then issue sqlalchemy update statement. Wrap in try/except — always return the success response dict even if DB write fails.",
+    "5. Create backend/app/core/weather.py: async module using httpx to call Open-Meteo free API (no key). URL: 'https://api.open-meteo.com/v1/forecast?latitude=28.6139&longitude=77.2090&daily=weathercode,precipitation_sum&timezone=Asia%2FKolkata&start_date={date_str}&end_date={date_str}'. Parse response.daily.weathercode[0] and daily.precipitation_sum[0]. Map WMO codes to condition/icon/emoji using a local dict. 1-hour in-memory cache keyed by date string. On any exception, return clear-sky fallback dict with source='fallback'. Include WMO_CODE_MAP covering codes: 0,1,2,3,45,48,51,61,63,65,80,95,99.",
+    "6. Wire weather to backend/app/api/routes/forecast.py: import get_delhi_weather from app.core.weather. In daily_forecast(), after parsing the date, if weather_code==0 auto-fetch weather with 'weather_data = await get_delhi_weather(d); weather_code = weather_data[\"weather_code\"]' wrapped in try/except. Add new endpoint 'GET /weather' that accepts 'date: str' query param and returns await get_delhi_weather(d). Add auth: Depends(get_current_user_token) for the /weather endpoint. Rename Python's 'date' import to avoid shadowing the 'date' query parameter — use 'from datetime import date as date_cls' and parse with 'date_cls.fromisoformat(date)'.",
+    "7. Update frontend/src/components/common/Navbar.jsx: rewrite WeatherChip component to fetch from '/api/forecast/weather?date=YYYY-MM-DD' using fetch() with the stored JWT token. Show condition first word (e.g. 'Clear', 'Rainy') and emoji in the chip. If token not available or fetch fails, keep existing sunny default silently. Remove Math.random() usage entirely."
+  ],
+  "acceptance_criteria": [
+    "After deleting ecofleet.db and restarting backend, manager@ecofleet.in can login with password Fleet@2026",
+    "After deleting ecofleet.db and restarting backend, driver1@ecofleet.in can login with password Driver@2026",
+    "GET /api/fleet/ returns 5 trucks with data from DB (not just in-memory list)",
+    "PATCH /api/fleet/TRUCK-04 with {is_active: true} persists across restart",
+    "GET /api/analytics/summary returns without error (mock data for fresh DB)",
+    "GET /api/forecast/weather?date=2026-10-01 returns JSON with weather_code and condition fields",
+    "POST /api/routing/stop/status updates the TruckAssignment.stops_data in the DB",
+    "cd backend && npm run build (frontend) completes without errors after Navbar change"
+  ],
+  "verification": [
+    "cd backend && python -c \"import asyncio; from app.core.weather import get_delhi_weather; from datetime import date; r=asyncio.run(get_delhi_weather(date.today())); print(r['condition'], r['weather_code']); assert 'weather_code' in r\"",
+    "cd backend && python -c \"import asyncio; os_env={'DATABASE_URL':'sqlite+aiosqlite:///./verify_test.db'}; import os; [os.environ.update(os_env)]; from app.core.database import init_db; asyncio.run(init_db()); print('SEED OK')\"",
+    "cd frontend && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

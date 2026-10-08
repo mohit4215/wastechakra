@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+dist/
+.next/
+.nuxt/
+*.local
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# SQLite local fallback DB
+*.db
+ecofleet.db
+
+# Coverage reports
+coverage.xml
+.coverage
+htmlcov/
+
+# Docker
+*.dockerignore
+
+# Vercel
+.vercel/
+frontend/.vercel/
+
+# Railway
+.railway/
+
+# Agent workflow task files (internal — not project code)
+.agents/
+
+# Data (large files)
+backend/data/raw/
+*.csv.gz
+*.pkl
+# Keep trained model artifacts — exclude only very large ones if needed
+# *.joblib

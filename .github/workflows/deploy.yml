@@ -1,0 +1,75 @@
+name: CD – Deploy to VPS
+
+on:
+  push:
+    branches:
+      - master
+
+# Only allow one deployment at a time; cancel in-progress if a new push arrives
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Write SSH key to disk ──────────────────────────────────────────────
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      # ── Deploy ─────────────────────────────────────────────────────────────
+      - name: Deploy via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" << 'ENDSSH'
+
+          set -euo pipefail
+
+          echo "==> Navigating to project directory"
+          cd /opt/wastechakra
+
+          echo "==> Pulling latest code"
+          git pull origin master
+
+          echo "==> Rebuilding & starting containers"
+          docker compose -f docker-compose.yml up --build -d --remove-orphans
+
+          echo "==> Waiting for backend to become healthy"
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "Health check passed on attempt ${i}"
+              exit 0
+            fi
+            echo "Attempt ${i}/15 – waiting 5 s..."
+            sleep 5
+          done
+
+          echo "ERROR: Backend health check failed after 75 s"
+          docker compose logs backend --tail=50
+          exit 1
+
+          ENDSSH
+
+      # ── Post-deploy health check from the runner side ─────────────────────
+      - name: Remote health check
+        run: |
+          echo "Verifying /health endpoint is reachable from CI runner..."
+          curl -sf --retry 5 --retry-delay 5 \
+            "http://${{ secrets.VPS_HOST }}:8000/health" | jq .
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /login
+Allow: /report
+Allow: /
+
+Sitemap: https://wastechakra.vercel.app/sitemap.xml

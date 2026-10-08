@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Phase 1 critical fixes: enforce role-based auth on all 5 API routers, fix requirements.txt, fix ML forecast determinism, fix CVRP load_utilization_pct, fix DriverPage arrival times, and update AuthContext + api.js for token expiry and 401 interception.",
+  "status": "completed",
+  "steps": [
+    "1. Verify backend/requirements.txt has python-jose[cryptography]>=3.3.0, passlib[bcrypt]>=1.7.4, httpx>=0.27.0, pytest>=8.0.0, pytest-asyncio>=0.23.0 — all confirmed present in existing file; no changes needed.",
+    "2. Add auth dependencies to backend/app/api/routes/nodes.py: import get_current_user_token, require_role, TokenData from app.core.security. GET / and GET /{node_id} and POST /{node_id}/collect → Depends(get_current_user_token). POST / and PUT /{node_id} and DELETE /{node_id} → Depends(require_role('manager','admin')). POST /{node_id}/report stays PUBLIC (no dependency).",
+    "3. Add auth dependencies to backend/app/api/routes/forecast.py: import require_role, get_current_user_token, TokenData from app.core.security. POST / and GET /daily → Depends(require_role('manager','admin')). Leave GET /weather as a placeholder comment for FEAT-003.",
+    "4. Add auth dependencies to backend/app/api/routes/routing.py: import get_current_user_token, require_role, TokenData from app.core.security. POST /optimize, GET /today, POST /dispatch, GET /history → Depends(require_role('manager','admin')). POST /stop/status → Depends(require_role('driver','manager','admin')).",
+    "5. Add auth dependencies to backend/app/api/routes/fleet.py: import get_current_user_token, require_role, TokenData from app.core.security, and add logging. GET / → Depends(require_role('manager','admin','driver')). POST /, PATCH /{truck_id}, DELETE /{truck_id} → Depends(require_role('manager','admin')).",
+    "6. Add auth dependencies to backend/app/api/routes/analytics.py: import require_role from app.core.security. GET /summary → Depends(require_role('manager','admin')).",
+    "7. Fix backend/app/ml/forecaster.py: replace 'confidence = round(random.uniform(0.75, 0.90), 3)' with 'confidence = round(0.75 + (seed % 1000) / 1000 * 0.15, 3)'. Remove 'import random' from the imports section (verify no other usage in the file — there is none).",
+    "8. Fix backend/app/routing/cvrp_solver.py: add 'truck_capacity_kg: int = 5000' parameter to _calculate_route(). Replace hardcoded '5000' in load_utilization_pct calculation with the parameter. Update the _calculate_route() call inside optimize_routes() to pass truck_capacity_kg=truck_capacity_kg. Remove the now-redundant overwrite line 'route[\"load_utilization_pct\"] = round(route[\"total_waste_kg\"] / truck_capacity_kg * 100, 1)' that follows the call.",
+    "9. Fix frontend/src/pages/DriverPage.jsx: find the hardcoded arrival time formula '0{8 + Math.floor(idx * 0.8)}:{idx % 2 === 0 ? \"15\" : \"45\"} AM' and replace with '{stop.estimated_arrival || `${String(8 + Math.floor(idx * 0.8)).padStart(2,\"0\")}:${idx % 2 === 0 ? \"15\" : \"45\"}`}'.",
+    "10. Update frontend/src/context/AuthContext.jsx: (a) Add isTokenExpired(token) helper function that base64-decodes the JWT payload and checks exp*1000 < Date.now(). (b) In the useEffect localStorage restore block, call isTokenExpired() and clear storage + skip restore if token is expired. (c) In login() callback, normalize userData by adding 'name: data.user.full_name || data.user.name' to fix Navbar initials display. (d) Optionally expose isTokenExpired in context value.",
+    "11. Update frontend/src/services/api.js: add response interceptor after the request interceptor that redirects to '/login' on 401 and to '/unauthorized' on 403, clearing localStorage on 401."
+  ],
+  "acceptance_criteria": [
+    "curl http://localhost:8000/api/nodes/ (without token) returns 401",
+    "curl http://localhost:8000/api/nodes/NODE-001/report -X POST (without token) returns 200 (public endpoint)",
+    "curl http://localhost:8000/api/forecast/daily?forecast_date=2026-10-01 (without token) returns 401",
+    "curl http://localhost:8000/api/analytics/summary (without token) returns 401",
+    "Two calls to _heuristic_forecast for same node+date return identical confidence values",
+    "optimize_routes with truck_capacity_kg=3000 and 2000kg load returns load_utilization_pct ~66.7",
+    "cd frontend && npm run build completes without errors",
+    "cd backend && python -c 'from app.main import app; print(\"OK\")' runs without ImportError"
+  ],
+  "verification": [
+    "cd backend && python -c \"from app.api.routes.nodes import router; print([r.dependencies for r in router.routes])\"",
+    "cd backend && python -c \"from app.ml.forecaster import _heuristic_forecast; from datetime import date; r1=_heuristic_forecast({'node_id':'N1','capacity_kg':500},date(2026,10,1)); r2=_heuristic_forecast({'node_id':'N1','capacity_kg':500},date(2026,10,1)); assert r1[1]==r2[1],'Not deterministic'; print('PASS confidence=',r1[1])\"",
+    "cd backend && python -c \"from app.routing.cvrp_solver import optimize_routes; r=optimize_routes([{'node_id':'N1','node_name':'T','latitude':28.55,'longitude':77.25,'predicted_volume_kg':2000,'fill_percentage':60,'risk_level':'medium'}],num_trucks=1,truck_capacity_kg=3000); print('util=',r['routes'][0]['load_utilization_pct']); assert abs(r['routes'][0]['load_utilization_pct']-66.7)<1\"",
+    "cd frontend && npm run build"
+  ],
+  "blocked_reason": null,
+  "findings": "1. Python 3.14 + FastAPI: Optional[X] = Depends(None) is not valid — login route in auth.py was changed to accept only JSON body (UserLogin), dropping OAuth2 form-data support. Frontend uses JSON login so behavior is unchanged. Later FEATs should not add Depends(None) patterns. 2. bcrypt>=4.1.2 is incompatible with passlib 1.7.x (__about__ attribute removed). Pinned bcrypt==4.0.1 in requirements.txt — do not upgrade without also upgrading passlib or switching to bcrypt directly. 3. Python hash() is PYTHONHASHSEED-randomized — the heuristic confidence value varies between separate process invocations but is stable within a single process (same-call determinism holds). If cross-process determinism is needed, switch seed to use hashlib. 4. All 5 routers now require auth using function-parameter Depends pattern (not router-level dependencies=[]). Tests in tests/ were updated to use an admin_token fixture — all 21 tests pass. 5. Routing endpoints (optimize, today, dispatch, history) require manager/admin. stop/status requires driver/manager/admin. DriverPage in the frontend currently calls /routing/optimize without auth — it will 401 until a driver token is injected via the AuthContext (FEAT-002 or later should ensure DriverPage passes the token)."
+}
