@@ -3,7 +3,7 @@ import {
   AlertTriangle, CheckCircle2, Send, MapPin, Phone, User, MessageSquare,
   ShieldCheck, ArrowLeft, Camera, Sparkles, Image as ImageIcon, Check, Clock
 } from 'lucide-react'
-import { fetchNodes, reportBinIssue } from '../services/api.js'
+import { fetchNodes, reportBinIssue, fetchReportedIssues } from '../services/api.js'
 import { Link } from 'react-router-dom'
 
 const SAMPLE_AI_SCENARIOS = [
@@ -42,7 +42,12 @@ export default function CitizenReportPage() {
   const [description, setDescription] = useState('')
   const [selectedScenario, setSelectedScenario] = useState('organic')
   const [submittedTicket, setSubmittedTicket] = useState(null)
+  const [ticketsList, setTicketsList] = useState([])
   const [loading, setLoading] = useState(false)
+
+  const loadTickets = () => {
+    fetchReportedIssues().then(setTicketsList)
+  }
 
   useEffect(() => {
     fetchNodes().then((data) => {
@@ -51,6 +56,7 @@ export default function CitizenReportPage() {
         setSelectedNode(data.nodes[0].node_id)
       }
     })
+    loadTickets()
   }, [])
 
   const currentScenario = SAMPLE_AI_SCENARIOS.find((s) => s.id === selectedScenario)
@@ -68,15 +74,18 @@ export default function CitizenReportPage() {
         estimated_overflow_kg: currentScenario?.estKg || 120,
       })
       setSubmittedTicket(res)
+      loadTickets()
     } catch {
-      setSubmittedTicket({
+      const fallbackTicket = {
         ticket_id: `TICKET-MCD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
         node_id: selectedNode,
         issue_type: issueType,
         reporter_name: reporterName || 'Aditya Singh',
         reported_at: new Date().toISOString(),
         status: 'Queued for Next Collection Cycle',
-      })
+      }
+      setSubmittedTicket(fallbackTicket)
+      loadTickets()
     } finally {
       setLoading(false)
     }
@@ -150,7 +159,11 @@ export default function CitizenReportPage() {
             </div>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+            <Link to="/routes" style={styles.viewRouteBtn}>
+              <MapPin size={15} />
+              <span>Track Incident on Live Route Map</span>
+            </Link>
             <button
               onClick={() => {
                 setSubmittedTicket(null)
@@ -300,6 +313,85 @@ export default function CitizenReportPage() {
           </div>
         </div>
       )}
+
+      {/* Live Grievance & SLA Tracking Table */}
+      <div style={styles.historyCard}>
+        <div style={styles.historyHeader}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={16} color="#10b981" />
+              <h3 style={styles.historyTitle}>Live Municipal Grievance Audit & Resolution Log</h3>
+            </div>
+            <p style={styles.historySubtitle}>
+              Real-time feed of citizen reports verified by AI and dispatched to active MCD compactor routes.
+            </p>
+          </div>
+          <Link to="/routes" style={styles.dispatchLink}>
+            <MapPin size={14} />
+            <span>Open Fleet Route Map</span>
+          </Link>
+        </div>
+
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.thRow}>
+                <th style={styles.th}>Ticket ID</th>
+                <th style={styles.th}>Collection Point / Location</th>
+                <th style={styles.th}>Category</th>
+                <th style={styles.th}>Reported By</th>
+                <th style={styles.th}>Timestamp</th>
+                <th style={styles.th}>Dispatch / SLA Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ticketsList.map((t) => (
+                <tr key={t.ticket_id} style={styles.tr}>
+                  <td style={styles.tdCode}>{t.ticket_id}</td>
+                  <td style={styles.td}>
+                    <strong>{t.node_name || t.node_id}</strong>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>{t.node_id}</div>
+                  </td>
+                  <td style={styles.td}>
+                    <span
+                      style={{
+                        ...styles.categoryPill,
+                        background: t.issue_type === 'overflow' ? '#fee2e2' : '#fef3c7',
+                        color: t.issue_type === 'overflow' ? '#b91c1c' : '#b45309',
+                      }}
+                    >
+                      {t.issue_type}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{t.reporter_name || 'Citizen'}</td>
+                  <td style={{ ...styles.td, color: '#64748b' }}>
+                    {new Date(t.reported_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td style={styles.td}>
+                    <span
+                      style={{
+                        ...styles.statusPill,
+                        background: t.status?.includes('Resolved')
+                          ? '#dcfce7'
+                          : t.status?.includes('Progress')
+                          ? '#e0f2fe'
+                          : '#f1f5f9',
+                        color: t.status?.includes('Resolved')
+                          ? '#15803d'
+                          : t.status?.includes('Progress')
+                          ? '#0369a1'
+                          : '#475569',
+                      }}
+                    >
+                      {t.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
@@ -571,5 +663,107 @@ const styles = {
     fontSize: '13px',
     fontWeight: 700,
     cursor: 'pointer',
+  },
+  viewRouteBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    borderRadius: '10px',
+    background: '#10b981',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 700,
+    textDecoration: 'none',
+    boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+  },
+  historyCard: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    border: '1px solid #e2e8f0',
+    padding: '24px',
+    marginTop: '28px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+  },
+  historyHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: '12px',
+    marginBottom: '20px',
+  },
+  historyTitle: {
+    fontSize: '16px',
+    fontWeight: 800,
+    color: '#0f172a',
+  },
+  historySubtitle: {
+    fontSize: '12.5px',
+    color: '#64748b',
+    marginTop: '2px',
+  },
+  dispatchLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '8px 14px',
+    background: '#ecfdf5',
+    color: '#047857',
+    border: '1px solid #a7f3d0',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontWeight: 700,
+    textDecoration: 'none',
+  },
+  tableWrap: {
+    overflowX: 'auto',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    textAlign: 'left',
+  },
+  thRow: {
+    background: '#f8fafc',
+    borderBottom: '1px solid #e2e8f0',
+  },
+  th: {
+    padding: '10px 14px',
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  tr: {
+    borderBottom: '1px solid #f1f5f9',
+    transition: 'background 0.15s ease',
+  },
+  td: {
+    padding: '12px 14px',
+    fontSize: '12.5px',
+    color: '#334155',
+  },
+  tdCode: {
+    padding: '12px 14px',
+    fontSize: '11.5px',
+    fontFamily: 'monospace',
+    fontWeight: 700,
+    color: '#0284c7',
+  },
+  categoryPill: {
+    fontSize: '11px',
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: '8px',
+    textTransform: 'capitalize',
+  },
+  statusPill: {
+    fontSize: '11px',
+    fontWeight: 700,
+    padding: '3px 10px',
+    borderRadius: '12px',
+    whiteSpace: 'nowrap',
   },
 }
