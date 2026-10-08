@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import {
   Leaf, LayoutDashboard, Map, Truck, BarChart2, Navigation,
   ShieldCheck, AlertTriangle, Play, Sparkles, Award
@@ -175,9 +175,9 @@ function AppShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <HashRouter>
         <AppShell />
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   )
 }

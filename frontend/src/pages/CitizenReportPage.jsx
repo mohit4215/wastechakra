@@ -214,7 +214,7 @@ export default function CitizenReportPage() {
                   onChange={(e) => setIssueType(e.target.value)}
                   style={styles.input}
                 >
-                  <option value="overflow">Severe Bin Overflow (>100% capacity)</option>
+                  <option value="overflow">Severe Bin Overflow (&gt;100% capacity)</option>
                   <option value="odour">Foul Odour / Public Health Hazard</option>
                   <option value="damaged_bin">Damaged Bin Lid or Vandalism</option>
                   <option value="unsegregated">Unsegregated Plastic / Hazardous Dump</option>
