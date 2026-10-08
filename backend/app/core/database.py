@@ -41,13 +41,25 @@ def _build_engine(database_url: str) -> AsyncEngine:
             echo=settings.DEBUG,
             connect_args={"check_same_thread": False},
         )
-    return create_async_engine(
-        database_url,
-        echo=settings.DEBUG,
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
-    )
+    try:
+        return create_async_engine(
+            database_url,
+            echo=settings.DEBUG,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+        )
+    except (ModuleNotFoundError, ImportError) as err:
+        logger.warning(
+            "Database driver for %s not found (%s). Falling back to SQLite local database.",
+            database_url,
+            err,
+        )
+        return create_async_engine(
+            "sqlite+aiosqlite:///./ecofleet.db",
+            echo=settings.DEBUG,
+            connect_args={"check_same_thread": False},
+        )
 
 
 engine: AsyncEngine = _build_engine(settings.DATABASE_URL)
