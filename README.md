@@ -4,11 +4,14 @@
 
 ![EcoFleet AI Banner](https://img.shields.io/badge/WasteChakra-2026-green?style=for-the-badge&logo=leaf)
 ![Track](https://img.shields.io/badge/Track-AI%20for%20Smart%20Municipal%20Governance-blue?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Active%20Development-orange?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-emerald?style=for-the-badge)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-22c55e?style=for-the-badge&logo=githubpages&logoColor=white)](https://mohit4215.github.io/wastechakra/)
 
 **Team Name:** Love Nature &nbsp;|&nbsp; **Team Lead:** Mohit Agarwal  
 **Institution:** Ajay Kumar Garg Engineering College, Ghaziabad  
-**Competition:** WasteChakra 2026
+**Competition:** WasteChakra 2026 — AI for Smart Municipal Governance
+
+🔗 **Live Application:** [https://mohit4215.github.io/wastechakra/](https://mohit4215.github.io/wastechakra/)
 
 </div>
 
