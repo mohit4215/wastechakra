@@ -3,7 +3,7 @@ import {
   MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap
 } from 'react-leaflet'
 import L from 'leaflet'
-import { optimizeRoutes, dispatchRoutes } from '../services/api.js'
+import { optimizeRoutes, dispatchRoutes, fetchRoadGeometry } from '../services/api.js'
 import { format } from 'date-fns'
 import {
   Play, Pause, RotateCcw, Truck, Navigation, CheckCircle2,
@@ -92,6 +92,8 @@ export default function RouteMap() {
 
   // Simulation State
   const [isSimulating, setIsSimulating] = useState(false)
+  const [roadGeometries, setRoadGeometries] = useState({}) // truck_id -> [[lat, lon], ...]
+  const [isRoadLoading, setIsRoadLoading] = useState(false)
   const [simSpeed, setSimSpeed] = useState(1) // 1x, 2x, 5x
   const [simProgress, setSimProgress] = useState(0) // 0 to 100%
   const [truckPositions, setTruckPositions] = useState({})
@@ -111,7 +113,7 @@ export default function RouteMap() {
       numTrucks,
       skipLowRisk,
     })
-      .then((data) => {
+      .then(async (data) => {
         setRouteData(data)
         setSelectedTruck(null)
         // Initialize truck start positions at Depot
@@ -120,6 +122,25 @@ export default function RouteMap() {
           initialPos[r.truck_id] = [DEPOT.latitude, DEPOT.longitude]
         })
         setTruckPositions(initialPos)
+
+        // Asynchronously fetch real Delhi road network geometries for all trucks via OpenRouteService
+        setIsRoadLoading(true)
+        const geometries = {}
+        for (const route of data.routes) {
+          const waypoints = [
+            [DEPOT.latitude, DEPOT.longitude],
+            ...route.stops.map((s) => [s.latitude, s.longitude]),
+            [DEPOT.latitude, DEPOT.longitude],
+          ]
+          try {
+            const roadPath = await fetchRoadGeometry(waypoints)
+            geometries[route.truck_id] = roadPath
+          } catch {
+            geometries[route.truck_id] = waypoints
+          }
+        }
+        setRoadGeometries(geometries)
+        setIsRoadLoading(false)
       })
       .catch((err) => console.error('Route optimization error:', err))
       .finally(() => setLoading(false))
@@ -145,14 +166,41 @@ export default function RouteMap() {
           return 100
         }
 
-        // Calculate current truck positions based on progress %
+        // Calculate current truck positions along real road geometry or waypoints
         const newPos = {}
         const newCollected = { ...collectedNodes }
 
         routeData.routes.forEach((r) => {
           if (!r.stops || r.stops.length === 0) return
 
-          // Sequence: Depot -> Stop 1 -> Stop 2 ... -> Stop N -> Depot
+          // If we have real OpenRouteService coordinates, glide along the exact road geometry
+          const roadPoints = roadGeometries[r.truck_id]
+          if (roadPoints && roadPoints.length > 1) {
+            const totalPoints = roadPoints.length
+            const pointIndex = Math.min(
+              Math.floor((next / 100) * (totalPoints - 1)),
+              totalPoints - 1
+            )
+            newPos[r.truck_id] = roadPoints[pointIndex]
+
+            // Mark nearby stops as collected as truck approaches them
+            const [curLat, curLon] = roadPoints[pointIndex]
+            r.stops.forEach((stop) => {
+              if (!newCollected[stop.node_id]) {
+                const distKm = Math.hypot(curLat - stop.latitude, curLon - stop.longitude) * 111
+                if (distKm < 0.6) {
+                  newCollected[stop.node_id] = true
+                  setSimLog((logs) => [
+                    `🚛 ${r.truck_id} collected ${stop.predicted_volume_kg} kg at ${stop.node_name}`,
+                    ...logs.slice(0, 15),
+                  ])
+                }
+              }
+            })
+            return
+          }
+
+          // Fallback sequence: Depot -> Stop 1 -> Stop 2 ... -> Stop N -> Depot
           const totalLegs = r.stops.length + 1
           const currentLegFloat = (next / 100) * totalLegs
           const currentLegIndex = Math.min(Math.floor(currentLegFloat), totalLegs - 1)
@@ -164,17 +212,14 @@ export default function RouteMap() {
           let endLon = DEPOT.longitude
 
           if (currentLegIndex === 0) {
-            // Depot to first stop
             endLat = r.stops[0].latitude
             endLon = r.stops[0].longitude
           } else if (currentLegIndex < r.stops.length) {
-            // Between stops
             startLat = r.stops[currentLegIndex - 1].latitude
             startLon = r.stops[currentLegIndex - 1].longitude
             endLat = r.stops[currentLegIndex].latitude
             endLon = r.stops[currentLegIndex].longitude
 
-            // Mark previous stop as collected
             const prevStop = r.stops[currentLegIndex - 1]
             if (!newCollected[prevStop.node_id]) {
               newCollected[prevStop.node_id] = true
@@ -184,7 +229,6 @@ export default function RouteMap() {
               ])
             }
           } else {
-            // Last stop to Depot
             startLat = r.stops[r.stops.length - 1].latitude
             startLon = r.stops[r.stops.length - 1].longitude
             endLat = DEPOT.latitude
@@ -200,7 +244,6 @@ export default function RouteMap() {
             }
           }
 
-          // Interpolated point
           const curLat = startLat + (endLat - startLat) * legFraction
           const curLon = startLon + (endLon - startLon) * legFraction
           newPos[r.truck_id] = [curLat, curLon]
@@ -267,6 +310,17 @@ export default function RouteMap() {
           <div style={styles.pageBadge}>
             <span style={styles.dot} />
             <span>MCD DYNAMIC CVRP ENGINE</span>
+            <span style={{
+              background: '#047857',
+              color: '#ffffff',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '10px',
+              fontWeight: 700,
+              marginLeft: '6px',
+            }}>
+              {isRoadLoading ? '📡 Connecting ORS Roads…' : '🛣️ OpenRouteService Live Roads Active'}
+            </span>
           </div>
           <h1 style={styles.title}>Live Municipal Route Optimizer & Fleet Simulation</h1>
         </div>
@@ -587,22 +641,24 @@ export default function RouteMap() {
               })
             )}
 
-            {/* Polyline Routes for each truck */}
+            {/* Polyline Routes for each truck — uses real OpenRouteService Delhi road geometry */}
             {activeRoutes.map((route, i) => {
-              const polylinePoints = [
+              const defaultPoints = [
                 [DEPOT.latitude, DEPOT.longitude],
                 ...route.stops.map((s) => [s.latitude, s.longitude]),
                 [DEPOT.latitude, DEPOT.longitude],
               ]
+              const displayPoints = roadGeometries[route.truck_id] || defaultPoints
+
               return (
                 <Polyline
                   key={route.truck_id}
-                  positions={polylinePoints}
+                  positions={displayPoints}
                   pathOptions={{
                     color: route.color || TRUCK_COLORS[i % TRUCK_COLORS.length],
-                    weight: selectedTruck === route.truck_id ? 5 : 3.5,
-                    opacity: 0.85,
-                    dashArray: isSimulating ? '8, 8' : undefined,
+                    weight: selectedTruck === route.truck_id ? 5.5 : 4,
+                    opacity: 0.9,
+                    dashArray: isSimulating ? '6, 6' : undefined,
                   }}
                 />
               )

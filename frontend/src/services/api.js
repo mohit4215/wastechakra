@@ -11,6 +11,44 @@ const api = axios.create({
   timeout: 8000,
 })
 
+// OpenRouteService API Token for real Delhi road network geometries
+export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVkN2Q1ZDIzZTBiMDQ0ZWQ5MmJlYzg4YmNjODJjMTY1IiwiaCI6Im11cm11cjY0In0='
+
+/**
+ * Fetch real driving road geometry coordinates [[lat, lon], ...] from OpenRouteService
+ * Falls back to straight-line coords if rate-limited or offline.
+ */
+export async function fetchRoadGeometry(coordinatePairs) {
+  // coordinatePairs format: [[lat1, lon1], [lat2, lon2], ...]
+  if (!coordinatePairs || coordinatePairs.length < 2) return coordinatePairs
+
+  // ORS expects [longitude, latitude]
+  const coordinates = coordinatePairs.map(([lat, lon]) => [lon, lat])
+
+  try {
+    const response = await axios.post(
+      'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
+      { coordinates },
+      {
+        headers: {
+          Authorization: ORS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        timeout: 6000,
+      }
+    )
+
+    if (response.data?.features?.[0]?.geometry?.coordinates) {
+      // Convert back to [latitude, longitude] for Leaflet
+      return response.data.features[0].geometry.coordinates.map(([lon, lat]) => [lat, lon])
+    }
+  } catch (err) {
+    console.warn('ORS live road navigation fallback to direct segments:', err.message)
+  }
+
+  return coordinatePairs
+}
+
 // Attach JWT token if stored
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('ecofleet_token')
