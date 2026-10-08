@@ -247,12 +247,37 @@ export default function DriverPage() {
                 </div>
 
                 {!isDone && (
-                  <button
-                    onClick={() => handleMarkCollected(stop)}
-                    style={styles.quickCheckBtn}
-                  >
-                    Mark Done
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        background: '#f1f5f9',
+                        color: '#334155',
+                        textDecoration: 'none',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        border: '1px solid #cbd5e1',
+                      }}
+                      title="Navigate to this stop on Google Maps"
+                    >
+                      <Navigation size={12} color="#059669" />
+                      <span>GPS</span>
+                    </a>
+
+                    <button
+                      onClick={() => handleMarkCollected(stop)}
+                      style={styles.quickCheckBtn}
+                    >
+                      Mark Done
+                    </button>
+                  </div>
                 )}
               </div>
             )

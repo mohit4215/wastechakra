@@ -206,6 +206,23 @@ export const deleteNode = async (nodeId) => {
   }
 }
 
+/**
+ * Trigger an immediate simulated overflow on a bin (useful for live municipal audits)
+ */
+export const triggerBinOverflow = (nodeId) => {
+  localNodes = localNodes.map(n => {
+    if (n.node_id === nodeId) {
+      return {
+        ...n,
+        historical_avg_kg: Math.round(n.capacity_kg * 1.35),
+        is_overflow: true,
+      }
+    }
+    return n
+  })
+  return localNodes.find(n => n.node_id === nodeId)
+}
+
 export const collectBin = async (nodeId, collectedKg = null, notes = '') => {
   try {
     const res = await api.post(`/nodes/${nodeId}/collect`, { collected_kg: collectedKg, notes })
@@ -256,7 +273,7 @@ export const fetchDailyForecast = async ({ date, zone, weatherCode = 0, isFestiv
     })
     return res.data
   } catch {
-    return generateDailyForecast({ date, zone, weatherCode, isFestival })
+    return generateDailyForecast({ date, zone, weatherCode, isFestival, customNodes: localNodes })
   }
 }
 
@@ -290,6 +307,7 @@ export const optimizeRoutes = async ({
       skipLowRisk,
       weatherCode,
       isFestival,
+      customNodes: localNodes,
     })
   }
 }

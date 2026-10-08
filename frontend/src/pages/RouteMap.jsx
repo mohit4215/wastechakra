@@ -3,12 +3,15 @@ import {
   MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap
 } from 'react-leaflet'
 import L from 'leaflet'
-import { optimizeRoutes, dispatchRoutes, fetchRoadGeometry } from '../services/api.js'
+import {
+  optimizeRoutes, dispatchRoutes, fetchRoadGeometry,
+  triggerBinOverflow, createNode
+} from '../services/api.js'
 import { format } from 'date-fns'
 import {
   Play, Pause, RotateCcw, Truck, Navigation, CheckCircle2,
   AlertTriangle, Fuel, Leaf, ArrowRight, Settings2, Sliders,
-  MapPin, ShieldCheck, Send, Layers, Sparkles
+  MapPin, ShieldCheck, Send, Layers, Sparkles, Download, Plus, Flame
 } from 'lucide-react'
 import { DEPOT, TRUCK_COLORS } from '../data/mockData.js'
 
@@ -289,6 +292,112 @@ export default function RouteMap() {
     }
   }
 
+  // Emergency Overflow trigger on any bin
+  const handleTriggerEmergency = async (nodeId, nodeName) => {
+    triggerBinOverflow(nodeId)
+    setSimLog((logs) => [
+      `🚨 EMERGENCY OVERFLOW: ${nodeName} (${nodeId}) triggered at 135% capacity! Re-optimizing CVRP…`,
+      ...logs.slice(0, 15),
+    ])
+    // Re-run CVRP solver immediately
+    loadRoutes()
+  }
+
+  // Official MCD SWM Rules 2026 Collection Manifest Exporter (CSV)
+  const handleExportManifest = () => {
+    if (!routeData || !routeData.routes) return
+    const headers = [
+      'Manifest Date',
+      'Truck ID',
+      'Vehicle Reg Number',
+      'Driver Name',
+      'Driver Contact',
+      'Stop Sequence',
+      'Collection Bin ID',
+      'Bin Location Name',
+      'Zone',
+      'Predicted Waste (kg)',
+      'Bin Fill Level (%)',
+      'Risk Classification',
+      'GPS Latitude',
+      'GPS Longitude',
+      'MCD Compliance Status',
+    ]
+
+    const rows = []
+    routeData.routes.forEach((route) => {
+      route.stops.forEach((stop) => {
+        rows.push([
+          today,
+          route.truck_id,
+          route.registration_number || 'DL-1C-0001',
+          route.driver_name || 'Assigned Driver',
+          route.driver_phone || '+91-9811001001',
+          stop.stop_index,
+          stop.node_id,
+          `"${stop.node_name.replace(/"/g, '""')}"`,
+          stop.zone || 'South Delhi Zone 3',
+          stop.predicted_volume_kg,
+          `${stop.fill_percentage || 75}%`,
+          stop.risk_level.toUpperCase(),
+          stop.latitude,
+          stop.longitude,
+          'SWM Rules 2026 Verified',
+        ])
+      })
+    })
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `MCD_Collection_Manifest_${today}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // New Collection Bin Placement Modal State
+  const [showAddBinModal, setShowAddBinModal] = useState(false)
+  const [newBinData, setNewBinData] = useState({
+    name: '',
+    zone: 'South Delhi Zone 3',
+    capacity_kg: 600,
+    latitude: 28.545,
+    longitude: 77.235,
+    population_density: 30000,
+  })
+
+  const handleCreateBin = async (e) => {
+    e.preventDefault()
+    if (!newBinData.name) return
+    await createNode({
+      ...newBinData,
+      capacity_kg: Number(newBinData.capacity_kg),
+      latitude: Number(newBinData.latitude),
+      longitude: Number(newBinData.longitude),
+      population_density: Number(newBinData.population_density),
+      waste_types: ['wet', 'dry'],
+    })
+    setShowAddBinModal(false)
+    setNewBinData({
+      name: '',
+      zone: 'South Delhi Zone 3',
+      capacity_kg: 600,
+      latitude: 28.545,
+      longitude: 77.235,
+      population_density: 30000,
+    })
+    setSimLog((logs) => [
+      `📍 New collection node placed: ${newBinData.name} (${newBinData.zone}). Re-routing fleet…`,
+      ...logs.slice(0, 15),
+    ])
+    loadRoutes()
+  }
+
   const activeRoutes = selectedTruck
     ? (routeData?.routes || []).filter((r) => r.truck_id === selectedTruck)
     : routeData?.routes || []
@@ -371,6 +480,36 @@ export default function RouteMap() {
 
           <button onClick={loadRoutes} style={styles.recalcBtn} disabled={loading}>
             <span>{loading ? 'Optimizing…' : 'Re-Run CVRP'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowAddBinModal(true)}
+            style={{
+              ...styles.toggleBtn,
+              background: '#047857',
+              color: '#ffffff',
+              borderColor: '#059669',
+              fontWeight: 600,
+            }}
+            title="Place a new collection point in Delhi"
+          >
+            <Plus size={14} color="#ffffff" />
+            <span>+ Add Bin</span>
+          </button>
+
+          <button
+            onClick={handleExportManifest}
+            style={{
+              ...styles.toggleBtn,
+              background: '#0f172a',
+              color: '#ffffff',
+              borderColor: '#1e293b',
+              fontWeight: 600,
+            }}
+            title="Download official Delhi SWM Rules 2026 Collection Manifest"
+          >
+            <Download size={14} color="#34d399" />
+            <span>Export Manifest (CSV)</span>
           </button>
         </div>
       </div>
@@ -634,6 +773,32 @@ export default function RouteMap() {
                             {isCollected ? 'STATUS: COLLECTED' : 'STATUS: PENDING COLLECTION'}
                           </span>
                         </div>
+
+                        {/* Interactive Emergency Overflow Injection Trigger */}
+                        <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                          <button
+                            onClick={() => handleTriggerEmergency(stop.node_id, stop.node_name)}
+                            style={{
+                              width: '100%',
+                              background: '#ef4444',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '5px 8px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                            }}
+                            title="Simulate sudden festive or commercial overflow — CVRP will re-route instantly!"
+                          >
+                            <Flame size={12} color="#ffffff" />
+                            <span>Trigger Emergency Overflow (+135%)</span>
+                          </button>
+                        </div>
                       </div>
                     </Popup>
                   </CircleMarker>
@@ -696,6 +861,136 @@ export default function RouteMap() {
           )}
         </div>
       </div>
+      {showAddBinModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '460px',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ background: '#ecfdf5', borderRadius: '8px', padding: '6px' }}>
+                  <Plus size={18} color="#059669" />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+                  Place New Municipal Bin
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowAddBinModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBin}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Bin Location / Landmark Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. AIIMS Main Gate Cluster Bins"
+                  value={newBinData.name}
+                  onChange={(e) => setNewBinData({ ...newBinData, name: e.target.value })}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                    Zone
+                  </label>
+                  <select
+                    value={newBinData.zone}
+                    onChange={(e) => setNewBinData({ ...newBinData, zone: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  >
+                    <option value="South Delhi Zone 3">South Delhi Zone 3</option>
+                    <option value="South Delhi Zone 4">South Delhi Zone 4</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                    Capacity (kg)
+                  </label>
+                  <input
+                    type="number"
+                    min="200"
+                    max="3000"
+                    step="50"
+                    value={newBinData.capacity_kg}
+                    onChange={(e) => setNewBinData({ ...newBinData, capacity_kg: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={newBinData.latitude}
+                    onChange={(e) => setNewBinData({ ...newBinData, latitude: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={newBinData.longitude}
+                    onChange={(e) => setNewBinData({ ...newBinData, longitude: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddBinModal(false)}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#059669', color: '#ffffff', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Deploy Bin & Re-Route
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

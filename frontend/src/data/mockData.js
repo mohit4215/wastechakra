@@ -466,8 +466,8 @@ export function computeNodeForecast(node, { date, weatherCode = 0, isFestival = 
 /**
  * Full Forecast Generator for all nodes
  */
-export function generateDailyForecast({ date, zone = null, weatherCode = 0, isFestival = false }) {
-  let nodes = SAMPLE_NODES
+export function generateDailyForecast({ date, zone = null, weatherCode = 0, isFestival = false, customNodes = null }) {
+  let nodes = customNodes && customNodes.length > 0 ? customNodes : SAMPLE_NODES
   if (zone) {
     nodes = nodes.filter(n => n.zone.toLowerCase() === zone.toLowerCase())
   }
@@ -497,8 +497,9 @@ export function solveCVRP({
   skipLowRisk = true,
   weatherCode = 0,
   isFestival = false,
+  customNodes = null,
 }) {
-  const forecastData = generateDailyForecast({ date, zone, weatherCode, isFestival })
+  const forecastData = generateDailyForecast({ date, zone, weatherCode, isFestival, customNodes })
   let candidateNodes = [...forecastData.forecasts]
 
   // Filter out low-risk if toggle enabled (<45% fill)
