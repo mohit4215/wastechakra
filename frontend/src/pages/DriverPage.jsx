@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import {
   Truck, CheckCircle, Navigation, MapPin, AlertCircle, RotateCcw,
-  Clock, ShieldCheck, ChevronRight, ExternalLink, Scale, Check
+  Clock, ShieldCheck, ChevronRight, ExternalLink, Scale, Check,
+  Volume2, VolumeX, Radio, Sparkles
 } from 'lucide-react'
 import { optimizeRoutes, collectBin, updateStopStatus } from '../services/api.js'
 import { format } from 'date-fns'
@@ -20,6 +21,59 @@ export default function DriverPage() {
   const [completedStops, setCompletedStops] = useState({})
   const [loading, setLoading] = useState(true)
   const [actionNotice, setActionNotice] = useState(null)
+  const [audioLang, setAudioLang] = useState('en') // 'en' | 'hi'
+  const [isSpeaking, setIsSpeaking] = useState(false)
+
+  const speakText = (text) => {
+    if (!('speechSynthesis' in window)) {
+      setActionNotice('⚠️ Audio voice dispatch is not supported in this browser.')
+      return
+    }
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = audioLang === 'hi' ? 'hi-IN' : 'en-IN'
+    utterance.rate = 0.95
+    utterance.pitch = 1.0
+    utterance.onstart = () => setIsSpeaking(true)
+    utterance.onend = () => setIsSpeaking(false)
+    utterance.onerror = () => setIsSpeaking(false)
+    window.speechSynthesis.speak(utterance)
+  }
+
+  const handleStopAudio = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      setIsSpeaking(false)
+    }
+  }
+
+  const handleSpeakBriefing = (route) => {
+    const targetRoute = route || currentRoute
+    if (!targetRoute) return
+    const uncollected = targetRoute.stops.filter((s) => !completedStops[`${selectedTruckId}-${s.stop_index}`])
+    const count = uncollected.length
+    if (audioLang === 'hi') {
+      speakText(
+        `मार्ग ${targetRoute.truck_id} प्रारंभ हो गया है। चालक ${targetRoute.driver_name}। कुल ${count} संग्रह बिंदु शेष हैं। अगला स्टॉप है ${uncollected[0]?.node_name || 'डिपो'}। जोखिम स्तर: ${uncollected[0]?.risk_level || 'सामान्य'}। कृपया सावधानी से वाहन चलाएं।`
+      )
+    } else {
+      speakText(
+        `Route ${targetRoute.truck_id} initiated. Driver ${targetRoute.driver_name}. You have ${count} pending collection stops. Your next stop is ${uncollected[0]?.node_name || 'return to depot'}, estimated volume ${uncollected[0]?.predicted_volume_kg || 0} kilograms. Proceed with caution.`
+      )
+    }
+  }
+
+  const handleSpeakStop = (stop) => {
+    if (audioLang === 'hi') {
+      speakText(
+        `स्टॉप नंबर ${stop.stop_index}: ${stop.node_name}। अनुमानित कचरा भार: ${stop.predicted_volume_kg} किलोग्राम। जोखिम स्तर: ${stop.risk_level}।`
+      )
+    } else {
+      speakText(
+        `Stop number ${stop.stop_index}: ${stop.node_name}. Estimated waste load: ${stop.predicted_volume_kg} kilograms. Risk status is ${stop.risk_level}.`
+      )
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -114,6 +168,64 @@ export default function DriverPage() {
         </div>
       </div>
 
+      {/* 🎙️ Voice Turn-by-Turn Audio Dispatcher */}
+      <div style={styles.audioDispatchCard}>
+        <div style={styles.audioLeft}>
+          <div style={styles.audioTitleRow}>
+            <Radio size={16} color="#10b981" />
+            <strong style={{ fontSize: '13px', color: '#0f172a' }}>
+              MCD Voice Dispatcher (Hands-Free Driving Assist)
+            </strong>
+            {isSpeaking && <span style={styles.speakingBadge}>🔊 Broadcasting…</span>}
+          </div>
+          <span style={styles.audioSub}>
+            Spoken turn-by-turn briefings for garbage truck drivers navigating busy Delhi street junctions
+          </span>
+        </div>
+
+        <div style={styles.audioControls}>
+          {/* Language selector */}
+          <div style={styles.langPills}>
+            <button
+              onClick={() => setAudioLang('en')}
+              style={{
+                ...styles.langBtn,
+                background: audioLang === 'en' ? '#0f172a' : '#ffffff',
+                color: audioLang === 'en' ? '#ffffff' : '#64748b',
+              }}
+            >
+              English
+            </button>
+            <button
+              onClick={() => setAudioLang('hi')}
+              style={{
+                ...styles.langBtn,
+                background: audioLang === 'hi' ? '#0f172a' : '#ffffff',
+                color: audioLang === 'hi' ? '#ffffff' : '#64748b',
+              }}
+            >
+              हिंदी (Hindi)
+            </button>
+          </div>
+
+          <button
+            onClick={() => handleSpeakBriefing(currentRoute)}
+            style={styles.speakBriefingBtn}
+            title="Read route shift briefing aloud"
+          >
+            <Volume2 size={15} />
+            <span>Listen Shift Briefing</span>
+          </button>
+
+          {isSpeaking && (
+            <button onClick={handleStopAudio} style={styles.stopAudioBtn} title="Mute voice assistant">
+              <VolumeX size={15} />
+              <span>Mute</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {actionNotice && (
         <div style={styles.actionAlert}>
           <CheckCircle size={16} color="#10b981" />
@@ -195,6 +307,15 @@ export default function DriverPage() {
             </a>
 
             <button
+              onClick={() => handleSpeakStop(nextStop)}
+              style={styles.speakNextBtn}
+              title="Speak next stop audio direction"
+            >
+              <Volume2 size={16} />
+              <span>Voice Assist</span>
+            </button>
+
+            <button
               onClick={() => handleMarkCollected(nextStop)}
               style={styles.collectBtn}
             >
@@ -248,6 +369,15 @@ export default function DriverPage() {
 
                 {!isDone && (
                   <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => handleSpeakStop(stop)}
+                      style={styles.speakStopBtn}
+                      title="Listen to spoken stop direction"
+                    >
+                      <Volume2 size={12} color="#0284c7" />
+                      <span>Audio</span>
+                    </button>
+
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`}
                       target="_blank"
@@ -549,6 +679,116 @@ const styles = {
     borderRadius: '8px',
     fontSize: '11.5px',
     fontWeight: 700,
+    cursor: 'pointer',
+  },
+  audioDispatchCard: {
+    background: '#ffffff',
+    borderRadius: '14px',
+    border: '1px solid #e2e8f0',
+    padding: '14px 18px',
+    marginBottom: '20px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+  },
+  audioLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '3px',
+  },
+  audioTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  speakingBadge: {
+    fontSize: '11px',
+    fontWeight: 700,
+    background: '#ecfdf5',
+    color: '#059669',
+    padding: '2px 8px',
+    borderRadius: '8px',
+  },
+  audioSub: {
+    fontSize: '11.5px',
+    color: '#64748b',
+  },
+  audioControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+  },
+  langPills: {
+    display: 'flex',
+    background: '#f1f5f9',
+    borderRadius: '8px',
+    padding: '2px',
+    border: '1px solid #e2e8f0',
+  },
+  langBtn: {
+    padding: '5px 10px',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  speakBriefingBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '8px 14px',
+    background: '#10b981',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 2px 6px rgba(16,185,129,0.3)',
+  },
+  stopAudioBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '8px 12px',
+    background: '#fee2e2',
+    color: '#dc2626',
+    border: '1px solid #fecdd3',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  speakNextBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '10px 16px',
+    background: '#f0fdf4',
+    color: '#047857',
+    border: '1px solid #a7f3d0',
+    borderRadius: '10px',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  speakStopBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    background: '#f0f9ff',
+    color: '#0369a1',
+    border: '1px solid #bae6fd',
+    fontSize: '11px',
+    fontWeight: 600,
     cursor: 'pointer',
   },
 }
