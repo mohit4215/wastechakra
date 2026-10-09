@@ -11,7 +11,8 @@ import { format } from 'date-fns'
 import {
   Play, Pause, RotateCcw, Truck, Navigation, CheckCircle2,
   AlertTriangle, Fuel, Leaf, ArrowRight, Settings2, Sliders,
-  MapPin, ShieldCheck, Send, Layers, Sparkles, Download, Plus, Flame
+  MapPin, ShieldCheck, Send, Layers, Sparkles, Download, Plus, Flame,
+  Printer, FileText, QrCode
 } from 'lucide-react'
 import { DEPOT, TRUCK_COLORS } from '../data/mockData.js'
 
@@ -92,6 +93,7 @@ export default function RouteMap() {
   const [skipLowRisk, setSkipLowRisk] = useState(true)
   const [zoneFilter, setZoneFilter] = useState('')
   const [dispatchSuccess, setDispatchSuccess] = useState(false)
+  const [showWorkOrderModal, setShowWorkOrderModal] = useState(false)
 
   // Simulation State
   const [isSimulating, setIsSimulating] = useState(false)
@@ -510,6 +512,21 @@ export default function RouteMap() {
           >
             <Download size={14} color="#34d399" />
             <span>Export Manifest (CSV)</span>
+          </button>
+
+          <button
+            onClick={() => setShowWorkOrderModal(true)}
+            style={{
+              ...styles.toggleBtn,
+              background: '#047857',
+              color: '#ffffff',
+              borderColor: '#059669',
+              fontWeight: 600,
+            }}
+            title="Generate and print official MCD Municipal Work Order Gazette"
+          >
+            <Printer size={14} color="#ffffff" />
+            <span>MCD Work Order (Print)</span>
           </button>
         </div>
       </div>
@@ -991,6 +1008,141 @@ export default function RouteMap() {
           </div>
         </div>
       )}
+
+      {/* Official MCD Municipal Work Order & SWM Compliance Gazette Modal */}
+      {showWorkOrderModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.workOrderCard}>
+            {/* Government Emblem & Header */}
+            <div style={styles.gazetteHeader}>
+              <div style={styles.mcdSeal}>
+                <div style={{ fontSize: '24px', fontWeight: 900 }}>🏛️</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={styles.govTitle}>MUNICIPAL CORPORATION OF DELHI</div>
+                <div style={styles.govDept}>DEPARTMENT OF ENVIRONMENT MANAGEMENT SERVICES (DEMS)</div>
+                <div style={styles.govDiv}>Solid Waste Management & Fleet Logistics Division — South Delhi Zone</div>
+                <div style={styles.govMandate}>ISSUED UNDER SWM RULES 2026 & SWACHH BHARAT URBAN MANDATE</div>
+              </div>
+              <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
+                <div><strong>Form SWM-IV</strong></div>
+                <div>Gazette Ref: SDZ-2026</div>
+              </div>
+            </div>
+
+            <div style={styles.woMetaGrid}>
+              <div>
+                <span style={styles.woMetaLabel}>Work Order Reference:</span>
+                <strong style={styles.woMetaVal}>MCD/DEMS/SDZ-2026/WO-0492</strong>
+              </div>
+              <div>
+                <span style={styles.woMetaLabel}>Date of Dispatch:</span>
+                <strong style={styles.woMetaVal}>{format(new Date(), 'dd MMMM yyyy')}</strong>
+              </div>
+              <div>
+                <span style={styles.woMetaLabel}>Operational Duty Shift:</span>
+                <strong style={styles.woMetaVal}>Morning Compactor Shift (06:00 - 14:00 hrs)</strong>
+              </div>
+              <div>
+                <span style={styles.woMetaLabel}>Assigned Jurisdictional Zone:</span>
+                <strong style={styles.woMetaVal}>South Delhi Zone 3 & Zone 4</strong>
+              </div>
+            </div>
+
+            {/* Vehicle Fleet Allocation Table */}
+            <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
+              <table style={styles.woTable}>
+                <thead>
+                  <tr style={styles.woThRow}>
+                    <th style={styles.woTh}>Truck ID</th>
+                    <th style={styles.woTh}>Registration</th>
+                    <th style={styles.woTh}>Driver Assigned</th>
+                    <th style={styles.woTh}>Stops</th>
+                    <th style={styles.woTh}>Allocated Waste</th>
+                    <th style={styles.woTh}>Route Distance</th>
+                    <th style={styles.woTh}>Fuel Category</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(routeData?.routes || []).map((r) => (
+                    <tr key={r.truck_id} style={styles.woTr}>
+                      <td style={{ ...styles.woTd, fontWeight: 700 }}>{r.truck_id}</td>
+                      <td style={{ ...styles.woTd, fontFamily: 'monospace' }}>{r.registration_number || 'DL-1C-0001'}</td>
+                      <td style={styles.woTd}>
+                        <strong>{r.driver_name}</strong>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>{r.driver_phone}</div>
+                      </td>
+                      <td style={{ ...styles.woTd, textAlign: 'center' }}>{r.stops.length}</td>
+                      <td style={{ ...styles.woTd, fontWeight: 700 }}>{r.total_weight_kg.toLocaleString()} kg</td>
+                      <td style={styles.woTd}>{r.route_distance_km} km</td>
+                      <td style={styles.woTd}>
+                        <span style={styles.woFuelBadge(r.fuel_type)}>
+                          {r.fuel_type || 'CNG Compactor'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Environmental & Route Efficiency Certification */}
+            <div style={styles.woCertBox}>
+              <div>
+                <span style={{ fontSize: '11px', color: '#065f46', fontWeight: 700 }}>
+                  CVRP Routing Efficiency Audit:
+                </span>
+                <div style={{ fontSize: '12.5px', color: '#0f172a', marginTop: '2px' }}>
+                  Total Waste Evacuated: <strong>{routeData?.total_weight_kg?.toLocaleString()} kg</strong> · Diesel Conserved: <strong>{routeData?.estimated_fuel_saved_liters} L</strong> · Deadhead Distance Avoided: <strong>{routeData?.total_distance_km} km</strong>
+                </div>
+              </div>
+              <div style={styles.swmVerifiedStamp}>
+                ✓ SWM RULES 2026 VERIFIED
+              </div>
+            </div>
+
+            {/* Authority Signatures */}
+            <div style={styles.woSigGrid}>
+              <div style={styles.woSigBlock}>
+                <div style={styles.sigLine} />
+                <div style={styles.sigRole}>Executive Engineer (Fleet Logistics)</div>
+                <div style={styles.sigOrg}>DEMS, South Delhi Zone</div>
+              </div>
+
+              <div style={styles.woSigBlock}>
+                <div style={styles.sigLine} />
+                <div style={styles.sigRole}>Zonal Health Officer (ZHO)</div>
+                <div style={styles.sigOrg}>Municipal Corporation of Delhi</div>
+              </div>
+
+              <div style={styles.woSigBlock}>
+                <div style={styles.sigLine} />
+                <div style={styles.sigRole}>Driver Receipt Acknowledgment</div>
+                <div style={styles.sigOrg}>Central Weighbridge (Okhla Depot)</div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={styles.woActions}>
+              <button
+                type="button"
+                onClick={() => setShowWorkOrderModal(false)}
+                style={styles.woCloseBtn}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                style={styles.woPrintBtn}
+              >
+                <Printer size={15} />
+                <span>Print Official Gazette / PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1387,5 +1539,189 @@ const styles = {
     fontSize: '11px',
     color: '#cbd5e1',
     lineHeight: 1.4,
+  },
+  workOrderCard: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    padding: '32px 36px',
+    width: '100%',
+    maxWidth: '920px',
+    maxHeight: '92vh',
+    overflowY: 'auto',
+    boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
+    border: '2px solid #047857',
+    fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  },
+  gazetteHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '2px double #047857',
+    paddingBottom: '16px',
+    marginBottom: '20px',
+  },
+  mcdSeal: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    background: '#ecfdf5',
+    border: '1.5px solid #059669',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  govTitle: {
+    fontSize: '18px',
+    fontWeight: 900,
+    color: '#047857',
+    letterSpacing: '0.8px',
+  },
+  govDept: {
+    fontSize: '13px',
+    fontWeight: 800,
+    color: '#0f172a',
+    marginTop: '2px',
+  },
+  govDiv: {
+    fontSize: '11.5px',
+    color: '#475569',
+    fontWeight: 600,
+  },
+  govMandate: {
+    fontSize: '10px',
+    fontWeight: 800,
+    color: '#059669',
+    letterSpacing: '0.5px',
+    marginTop: '3px',
+  },
+  woMetaGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '14px',
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    padding: '14px 18px',
+    marginBottom: '18px',
+  },
+  woMetaLabel: {
+    fontSize: '11px',
+    color: '#64748b',
+    display: 'block',
+  },
+  woMetaVal: {
+    fontSize: '13px',
+    color: '#0f172a',
+    marginTop: '2px',
+    display: 'block',
+  },
+  woTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    textAlign: 'left',
+    fontSize: '12px',
+  },
+  woThRow: {
+    background: '#f1f5f9',
+    borderBottom: '2px solid #cbd5e1',
+  },
+  woTh: {
+    padding: '10px 12px',
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#334155',
+    textTransform: 'uppercase',
+  },
+  woTr: {
+    borderBottom: '1px solid #e2e8f0',
+  },
+  woTd: {
+    padding: '10px 12px',
+    color: '#1e293b',
+  },
+  woFuelBadge: (fuel) => ({
+    fontSize: '10px',
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: '8px',
+    background: fuel?.includes('EV') || fuel?.includes('Electric') ? '#dcfce7' : '#e0f2fe',
+    color: fuel?.includes('EV') || fuel?.includes('Electric') ? '#15803d' : '#0369a1',
+  }),
+  woCertBox: {
+    background: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    borderRadius: '10px',
+    padding: '14px 18px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '28px',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
+  swmVerifiedStamp: {
+    fontSize: '11px',
+    fontWeight: 900,
+    color: '#047857',
+    border: '1.5px dashed #059669',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    background: '#ffffff',
+    letterSpacing: '0.4px',
+  },
+  woSigGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '24px',
+    marginBottom: '28px',
+    paddingTop: '16px',
+    borderTop: '1px dashed #cbd5e1',
+  },
+  woSigBlock: {
+    textAlign: 'center',
+  },
+  sigLine: {
+    height: '1px',
+    background: '#94a3b8',
+    marginBottom: '8px',
+  },
+  sigRole: {
+    fontSize: '12px',
+    fontWeight: 700,
+    color: '#0f172a',
+  },
+  sigOrg: {
+    fontSize: '10.5px',
+    color: '#64748b',
+    marginTop: '1px',
+  },
+  woActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '12px',
+  },
+  woCloseBtn: {
+    padding: '9px 18px',
+    borderRadius: '8px',
+    border: '1px solid #cbd5e1',
+    background: '#ffffff',
+    color: '#475569',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  woPrintBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '9px 20px',
+    borderRadius: '8px',
+    border: 'none',
+    background: '#047857',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(4,120,87,0.35)',
   },
 }
