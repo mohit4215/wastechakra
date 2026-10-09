@@ -1,7 +1,7 @@
 """
 API Route: /api/forecast — Waste volume forecasting
 """
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 
@@ -43,7 +43,7 @@ async def generate_forecast(
 
     return ForecastResponse(
         forecast_date=body.forecast_date,
-        generated_at=datetime.utcnow(),
+        generated_at=datetime.now(timezone.utc),
         forecasts=[NodeForecast(**r) for r in results],
         high_risk_count=high_risk,
         total_predicted_volume_kg=total_vol,
@@ -88,7 +88,7 @@ async def daily_forecast(
 
     return ForecastResponse(
         forecast_date=forecast_date,
-        generated_at=datetime.utcnow(),
+        generated_at=datetime.now(timezone.utc),
         forecasts=[NodeForecast(**r) for r in results],
         high_risk_count=high_risk,
         total_predicted_volume_kg=total_vol,

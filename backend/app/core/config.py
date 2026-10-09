@@ -1,7 +1,7 @@
 """
 Application configuration via environment variables.
 """
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
 
@@ -57,9 +57,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str = "EcoFleet@2026"
     FIRST_SUPERUSER_FULL_NAME: str = "EcoFleet Administrator"
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()

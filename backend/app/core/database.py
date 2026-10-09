@@ -102,7 +102,7 @@ _SEED_TRUCKS = [
         "driver_name": "Ramesh Kumar",
         "driver_phone": "+91-9811001001",
         "capacity_kg": 5000,
-        "zone": "South Delhi Zone 3",
+        "zone": "South Delhi (MCD)",
         "is_active": True,
     },
     {
@@ -111,34 +111,61 @@ _SEED_TRUCKS = [
         "driver_name": "Suresh Yadav",
         "driver_phone": "+91-9811001002",
         "capacity_kg": 5000,
-        "zone": "South Delhi Zone 3",
+        "zone": "South Delhi (MCD)",
         "is_active": True,
     },
     {
         "truck_id": "TRUCK-03",
-        "registration_number": "DL-1C-0003",
-        "driver_name": "Mohan Singh",
+        "registration_number": "DL-2C-1044",
+        "driver_name": "Rajesh Sharma",
         "driver_phone": "+91-9811001003",
-        "capacity_kg": 4000,
-        "zone": "South Delhi Zone 4",
+        "capacity_kg": 5500,
+        "zone": "Central & New Delhi (NDMC)",
         "is_active": True,
     },
     {
         "truck_id": "TRUCK-04",
-        "registration_number": "DL-1C-0004",
-        "driver_name": "Vijay Sharma",
+        "registration_number": "UP-16-BT-2026",
+        "driver_name": "Vikram Pratap Singh",
         "driver_phone": "+91-9811001004",
         "capacity_kg": 5000,
-        "zone": "South Delhi Zone 4",
-        "is_active": False,
+        "zone": "Noida (Authority)",
+        "is_active": True,
     },
     {
         "truck_id": "TRUCK-05",
-        "registration_number": "DL-1C-0005",
-        "driver_name": "Arun Gupta",
+        "registration_number": "UP-14-ET-4819",
+        "driver_name": "Arun Tyagi",
         "driver_phone": "+91-9811001005",
-        "capacity_kg": 3000,
-        "zone": "South Delhi Zone 3",
+        "capacity_kg": 4500,
+        "zone": "Ghaziabad & East Delhi (GMC/EDMC)",
+        "is_active": True,
+    },
+    {
+        "truck_id": "TRUCK-06",
+        "registration_number": "HR-26-DK-9012",
+        "driver_name": "Manjeet Singh",
+        "driver_phone": "+91-9811001006",
+        "capacity_kg": 5500,
+        "zone": "Gurugram (MCG)",
+        "is_active": True,
+    },
+    {
+        "truck_id": "TRUCK-07",
+        "registration_number": "HR-55-AU-3180",
+        "driver_name": "Virender Hooda",
+        "driver_phone": "+91-9811001007",
+        "capacity_kg": 5000,
+        "zone": "Gurugram (MCG)",
+        "is_active": True,
+    },
+    {
+        "truck_id": "TRUCK-08",
+        "registration_number": "DL-1C-0008",
+        "driver_name": "Karan Verma",
+        "driver_phone": "+91-9811001008",
+        "capacity_kg": 4000,
+        "zone": "Central & New Delhi (NDMC)",
         "is_active": True,
     },
 ]
@@ -171,13 +198,7 @@ async def init_db() -> None:
         )
         sqlite_url = "sqlite+aiosqlite:///./ecofleet.db"
         engine = _build_engine(sqlite_url)
-        AsyncSessionLocal = async_sessionmaker(
-            bind=engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False,
-        )
+        AsyncSessionLocal.configure(bind=engine)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
@@ -198,11 +219,12 @@ async def init_db() -> None:
                 session.add(admin_user)
                 logger.info("Seeded default superuser: %s", settings.FIRST_SUPERUSER_EMAIL)
 
-            # 2. Seed Collection Nodes from SAMPLE_NODES
-            node_stmt = select(db_models.CollectionNodeModel).limit(1)
-            node_res = await session.execute(node_stmt)
-            if not node_res.scalar_one_or_none():
-                for n in SAMPLE_NODES:
+            # 2. Seed Collection Nodes from SAMPLE_NODES (ensures full 50 nodes)
+            existing_node_res = await session.execute(select(db_models.CollectionNodeModel.node_id))
+            existing_node_ids = set(existing_node_res.scalars().all())
+            added_nodes = 0
+            for n in SAMPLE_NODES:
+                if n["node_id"] not in existing_node_ids:
                     node = db_models.CollectionNodeModel(
                         node_id=n["node_id"],
                         name=n["name"],
@@ -214,16 +236,21 @@ async def init_db() -> None:
                         population_density=float(n.get("population_density", 20000)),
                     )
                     session.add(node)
-                logger.info("Seeded %d collection nodes into database.", len(SAMPLE_NODES))
+                    added_nodes += 1
+            if added_nodes > 0:
+                logger.info("Seeded %d collection nodes into database.", added_nodes)
 
-            # 3. Seed Trucks
-            truck_stmt = select(db_models.Truck).limit(1)
-            truck_res = await session.execute(truck_stmt)
-            if not truck_res.scalar_one_or_none():
-                for t in _SEED_TRUCKS:
+            # 3. Seed Trucks (ensures full 8 regional trucks)
+            existing_truck_res = await session.execute(select(db_models.Truck.truck_id))
+            existing_truck_ids = set(existing_truck_res.scalars().all())
+            added_trucks = 0
+            for t in _SEED_TRUCKS:
+                if t["truck_id"] not in existing_truck_ids:
                     truck = db_models.Truck(**t)
                     session.add(truck)
-                logger.info("Seeded %d trucks into database.", len(_SEED_TRUCKS))
+                    added_trucks += 1
+            if added_trucks > 0:
+                logger.info("Seeded %d trucks into database.", added_trucks)
 
             await session.commit()
         except Exception as seed_err:
