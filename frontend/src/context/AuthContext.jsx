@@ -41,10 +41,10 @@ export function AuthProvider({ children }) {
         // Automatically pre-authenticate in evaluator demo mode if no prior session
         const defaultUser = {
           email: 'admin@ecofleet.ai',
-          full_name: 'Aditya Singh (MCD Administrator)',
+          full_name: 'Aditya Singh (NCR Municipal Administrator)',
           name: 'Aditya Singh',
           role: 'admin',
-          zone: 'South Delhi Zone 3 & 4',
+          zone: 'Delhi NCR Metropolitan Region',
         };
         const defaultToken = 'demo-jwt-token-wastechakra-2026';
         localStorage.setItem(TOKEN_KEY, defaultToken);

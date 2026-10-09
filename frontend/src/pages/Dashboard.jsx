@@ -28,7 +28,7 @@ const EVALUATOR_SCENARIOS = [
     weather: 0,
     festival: false,
     tag: 'Routine Operations',
-    desc: 'Regular daily waste generation across South Delhi. Standard 5-truck compactor dispatch with 98.7% SWM compliance.',
+    desc: 'Regular daily waste generation across Delhi NCR. Standard 6-truck compactor dispatch with 98.7% SWM compliance.',
   },
   {
     id: 'diwali',
@@ -38,7 +38,7 @@ const EVALUATOR_SCENARIOS = [
     weather: 0,
     festival: true,
     tag: '+40% Packaging / Commercial Surge',
-    desc: 'Commercial clusters (Lajpat Nagar, Greater Kailash) hit critical fill velocity. CVRP dynamically prevents overflow spillover.',
+    desc: 'Commercial clusters (Lajpat Nagar, Connaught Place, Cyber City) hit critical fill velocity. CVRP dynamically prevents overflow spillover.',
   },
   {
     id: 'monsoon',
@@ -185,9 +185,9 @@ export default function Dashboard() {
       <div style={styles.contextBar}>
         <div style={styles.contextLeft}>
           <div style={styles.titleWrap}>
-            <h1 style={styles.h1}>MCD EcoFleet Command Center</h1>
+            <h1 style={styles.h1}>Delhi NCR EcoFleet Command Center</h1>
             <p style={styles.subtitle}>
-              South Delhi Zones 3 & 4 · Automated CVRP Route Optimization · {format(new Date(), 'dd MMMM yyyy')}
+              Greater Capital Region (50 Nodes across 5 Municipal Authorities) · Automated CVRP Route Optimization · {format(new Date(), 'dd MMMM yyyy')}
             </p>
           </div>
         </div>
@@ -201,9 +201,12 @@ export default function Dashboard() {
               onChange={(e) => setSelectedZone(e.target.value)}
               style={styles.select}
             >
-              <option value="">All South Delhi (25 Nodes)</option>
-              <option value="South Delhi Zone 3">Zone 3 (Lajpat / GK / INA)</option>
-              <option value="South Delhi Zone 4">Zone 4 (Saket / Okhla / Kalkaji)</option>
+              <option value="">All Delhi NCR (50 Nodes)</option>
+              <option value="South Delhi (MCD)">South Delhi (MCD)</option>
+              <option value="Central & New Delhi (NDMC)">Central & New Delhi (NDMC)</option>
+              <option value="Noida (Authority)">Noida Authority (UP)</option>
+              <option value="Gurugram (MCG)">Gurugram (MCG, Haryana)</option>
+              <option value="Ghaziabad & East Delhi (GMC/EDMC)">Ghaziabad & East Delhi (GMC/EDMC)</option>
             </select>
           </div>
 
@@ -379,7 +382,7 @@ export default function Dashboard() {
           </div>
           <h2 style={styles.simHeading}>Test Live Dynamic Route Dispatch</h2>
           <p style={styles.simDesc}>
-            Watch compactor trucks physically move across South Delhi, collect bins, empty high-risk zones, and recalculate
+            Watch compactor trucks physically move across Delhi NCR, collect bins, empty high-risk zones, and recalculate
             fuel savings in real time.
           </p>
         </div>

@@ -14,7 +14,7 @@ import {
   MapPin, ShieldCheck, Send, Layers, Sparkles, Download, Plus, Flame,
   Printer, FileText, QrCode
 } from 'lucide-react'
-import { DEPOT, TRUCK_COLORS } from '../data/mockData.js'
+import { DEPOT, TRUCK_COLORS, NCR_ZONES } from '../data/mockData.js'
 
 // Fix Leaflet marker icons in Vite
 delete L.Icon.Default.prototype._getIconUrl
@@ -92,6 +92,7 @@ export default function RouteMap() {
   const [numTrucks, setNumTrucks] = useState(5)
   const [skipLowRisk, setSkipLowRisk] = useState(true)
   const [zoneFilter, setZoneFilter] = useState('')
+  const activeZone = NCR_ZONES.find((z) => z.value === zoneFilter) || NCR_ZONES[0]
   const [dispatchSuccess, setDispatchSuccess] = useState(false)
   const [showWorkOrderModal, setShowWorkOrderModal] = useState(false)
 
@@ -366,7 +367,7 @@ export default function RouteMap() {
   const [showAddBinModal, setShowAddBinModal] = useState(false)
   const [newBinData, setNewBinData] = useState({
     name: '',
-    zone: 'South Delhi Zone 3',
+    zone: 'South Delhi (MCD)',
     capacity_kg: 600,
     latitude: 28.545,
     longitude: 77.235,
@@ -387,7 +388,7 @@ export default function RouteMap() {
     setShowAddBinModal(false)
     setNewBinData({
       name: '',
-      zone: 'South Delhi Zone 3',
+      zone: 'South Delhi (MCD)',
       capacity_kg: 600,
       latitude: 28.545,
       longitude: 77.235,
@@ -460,9 +461,12 @@ export default function RouteMap() {
               onChange={(e) => setZoneFilter(e.target.value)}
               style={styles.select}
             >
-              <option value="">South Delhi (All)</option>
-              <option value="South Delhi Zone 3">Zone 3</option>
-              <option value="South Delhi Zone 4">Zone 4</option>
+              <option value="">All Delhi NCR (50 Nodes)</option>
+              <option value="South Delhi (MCD)">South Delhi (MCD)</option>
+              <option value="Central & New Delhi (NDMC)">Central & New Delhi (NDMC)</option>
+              <option value="Noida (Authority)">Noida Authority (UP)</option>
+              <option value="Gurugram (MCG)">Gurugram (MCG, Haryana)</option>
+              <option value="Ghaziabad & East Delhi (GMC/EDMC)">Ghaziabad & East Delhi (GMC/EDMC)</option>
             </select>
           </div>
 
@@ -710,11 +714,12 @@ export default function RouteMap() {
         {/* Center Interactive Leaflet Map */}
         <div style={styles.mapWrap}>
           <MapContainer
-            center={[28.542, 77.242]}
-            zoom={13}
+            center={activeZone.center}
+            zoom={activeZone.zoom}
             scrollWheelZoom={true}
             style={{ height: '100%', width: '100%' }}
           >
+            <MapController center={activeZone.center} zoom={activeZone.zoom} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -940,8 +945,11 @@ export default function RouteMap() {
                     onChange={(e) => setNewBinData({ ...newBinData, zone: e.target.value })}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
                   >
-                    <option value="South Delhi Zone 3">South Delhi Zone 3</option>
-                    <option value="South Delhi Zone 4">South Delhi Zone 4</option>
+                    <option value="South Delhi (MCD)">South Delhi (MCD)</option>
+                    <option value="Central & New Delhi (NDMC)">Central & New Delhi (NDMC)</option>
+                    <option value="Noida (Authority)">Noida Authority (UP)</option>
+                    <option value="Gurugram (MCG)">Gurugram (MCG, Haryana)</option>
+                    <option value="Ghaziabad & East Delhi (GMC/EDMC)">Ghaziabad & East Delhi (GMC/EDMC)</option>
                   </select>
                 </div>
 
@@ -1019,21 +1027,21 @@ export default function RouteMap() {
                 <div style={{ fontSize: '24px', fontWeight: 900 }}>🏛️</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={styles.govTitle}>MUNICIPAL CORPORATION OF DELHI</div>
-                <div style={styles.govDept}>DEPARTMENT OF ENVIRONMENT MANAGEMENT SERVICES (DEMS)</div>
-                <div style={styles.govDiv}>Solid Waste Management & Fleet Logistics Division — South Delhi Zone</div>
+                <div style={styles.govTitle}>NATIONAL CAPITAL REGION MUNICIPAL ALLIANCE (DELHI NCR)</div>
+                <div style={styles.govDept}>JOINT DEPARTMENT OF ENVIRONMENT MANAGEMENT SERVICES (DEMS)</div>
+                <div style={styles.govDiv}>Solid Waste Management & Fleet Logistics Division — {zoneFilter || 'All Regional NCR Zones'}</div>
                 <div style={styles.govMandate}>ISSUED UNDER SWM RULES 2026 & SWACHH BHARAT URBAN MANDATE</div>
               </div>
               <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
                 <div><strong>Form SWM-IV</strong></div>
-                <div>Gazette Ref: SDZ-2026</div>
+                <div>Gazette Ref: NCR-2026</div>
               </div>
             </div>
 
             <div style={styles.woMetaGrid}>
               <div>
                 <span style={styles.woMetaLabel}>Work Order Reference:</span>
-                <strong style={styles.woMetaVal}>MCD/DEMS/SDZ-2026/WO-0492</strong>
+                <strong style={styles.woMetaVal}>NCR/DEMS/2026/WO-0892</strong>
               </div>
               <div>
                 <span style={styles.woMetaLabel}>Date of Dispatch:</span>
@@ -1045,7 +1053,7 @@ export default function RouteMap() {
               </div>
               <div>
                 <span style={styles.woMetaLabel}>Assigned Jurisdictional Zone:</span>
-                <strong style={styles.woMetaVal}>South Delhi Zone 3 & Zone 4</strong>
+                <strong style={styles.woMetaVal}>{zoneFilter ? zoneFilter : 'All 5 NCR Regional Zones (50 Nodes)'}</strong>
               </div>
             </div>
 
@@ -1106,7 +1114,7 @@ export default function RouteMap() {
               <div style={styles.woSigBlock}>
                 <div style={styles.sigLine} />
                 <div style={styles.sigRole}>Executive Engineer (Fleet Logistics)</div>
-                <div style={styles.sigOrg}>DEMS, South Delhi Zone</div>
+                <div style={styles.sigOrg}>DEMS, {zoneFilter || 'Delhi NCR Regional Division'}</div>
               </div>
 
               <div style={styles.woSigBlock}>

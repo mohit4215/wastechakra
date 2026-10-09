@@ -82,7 +82,10 @@ api.interceptors.response.use(
 const getStoredNodes = () => {
   try {
     const saved = localStorage.getItem('ecofleet_nodes')
-    if (saved) return JSON.parse(saved)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length >= 40) return parsed
+    }
   } catch (e) {
     console.warn('Could not read ecofleet_nodes:', e)
   }
@@ -92,7 +95,10 @@ const getStoredNodes = () => {
 const getStoredTrucks = () => {
   try {
     const saved = localStorage.getItem('ecofleet_trucks')
-    if (saved) return JSON.parse(saved)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length >= 8) return parsed
+    }
   } catch (e) {
     console.warn('Could not read ecofleet_trucks:', e)
   }
@@ -535,7 +541,7 @@ export const fetchAnalyticsSummary = async () => {
       total_co2_abated_kg: 1174.4,
       trees_equivalent: 53,
       overflow_incidents_prevented: 48,
-      active_collection_points: 25,
+      active_collection_points: 50,
       fleet_utilization_rate: 89.2,
       daily_trend: [
         { date: '2026-09-30', waste_collected_kg: 8200, fuel_saved_liters: 14.6, co2_saved_kg: 39.1, compliance_pct: 97.8 },
@@ -553,8 +559,11 @@ export const fetchAnalyticsSummary = async () => {
         { name: 'Domestic Hazardous / E-Waste', value: 4, fill: '#ef4444' },
       ],
       zone_breakdown: [
-        { zone: 'South Delhi Zone 3', nodes_count: 13, avg_fill_pct: 57.2, waste_volume_kg: 4820.0, compliance: '99.1%' },
-        { zone: 'South Delhi Zone 4', nodes_count: 12, avg_fill_pct: 61.8, waste_volume_kg: 4590.0, compliance: '98.3%' },
+        { zone: 'South Delhi (MCD)', nodes_count: 15, avg_fill_pct: 57.2, waste_volume_kg: 5820.0, compliance: '99.1%' },
+        { zone: 'Central & New Delhi (NDMC)', nodes_count: 9, avg_fill_pct: 64.5, waste_volume_kg: 4210.0, compliance: '99.4%' },
+        { zone: 'Noida (Authority)', nodes_count: 9, avg_fill_pct: 53.8, waste_volume_kg: 3950.0, compliance: '98.8%' },
+        { zone: 'Gurugram (MCG)', nodes_count: 9, avg_fill_pct: 62.1, waste_volume_kg: 4480.0, compliance: '98.5%' },
+        { zone: 'Ghaziabad & East Delhi (GMC/EDMC)', nodes_count: 8, avg_fill_pct: 68.3, waste_volume_kg: 4620.0, compliance: '97.9%' },
       ],
     }
   }

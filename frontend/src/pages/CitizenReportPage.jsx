@@ -112,7 +112,7 @@ export default function CitizenReportPage() {
           </div>
           <h2 style={styles.successTitle}>Grievance Logged & Queued for Fleet Dispatch</h2>
           <p style={styles.successSub}>
-            Your complaint has been verified and registered in the MCD South Delhi live routing engine.
+            Your complaint has been verified and registered in the Delhi NCR live municipal routing engine.
           </p>
 
           <div style={styles.ticketBox}>

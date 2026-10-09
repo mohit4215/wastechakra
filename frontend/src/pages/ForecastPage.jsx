@@ -106,9 +106,12 @@ export default function ForecastPage() {
               onChange={(e) => setSelectedZone(e.target.value)}
               style={styles.input}
             >
-              <option value="">All South Delhi (Zones 3 & 4)</option>
-              <option value="South Delhi Zone 3">Zone 3 (Lajpat Nagar / GK)</option>
-              <option value="South Delhi Zone 4">Zone 4 (Saket / Okhla)</option>
+              <option value="">All Delhi NCR (50 Nodes)</option>
+              <option value="South Delhi (MCD)">South Delhi (MCD)</option>
+              <option value="Central & New Delhi (NDMC)">Central & New Delhi (NDMC)</option>
+              <option value="Noida (Authority)">Noida Authority (UP)</option>
+              <option value="Gurugram (MCG)">Gurugram (MCG, Haryana)</option>
+              <option value="Ghaziabad & East Delhi (GMC/EDMC)">Ghaziabad & East Delhi (GMC/EDMC)</option>
             </select>
           </div>
 

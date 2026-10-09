@@ -18,7 +18,7 @@ export default function FleetPage() {
     driver_name: '',
     driver_phone: '+91-9811001007',
     capacity_kg: 5000,
-    zone: 'South Delhi Zone 3',
+    zone: 'South Delhi (MCD)',
     fuel_type: 'EV',
   })
 
@@ -77,7 +77,7 @@ export default function FleetPage() {
       driver_name: '',
       driver_phone: '+91-9811001008',
       capacity_kg: 5000,
-      zone: 'South Delhi Zone 4',
+      zone: 'South Delhi (MCD)',
       fuel_type: 'EV',
     })
   }
@@ -466,8 +466,11 @@ export default function FleetPage() {
                   onChange={(e) => setNewTruckForm({ ...newTruckForm, zone: e.target.value })}
                   style={styles.modalInput}
                 >
-                  <option value="South Delhi Zone 3">South Delhi Zone 3</option>
-                  <option value="South Delhi Zone 4">South Delhi Zone 4</option>
+                  <option value="South Delhi (MCD)">South Delhi (MCD)</option>
+                  <option value="Central & New Delhi (NDMC)">Central & New Delhi (NDMC)</option>
+                  <option value="Noida (Authority)">Noida Authority (UP)</option>
+                  <option value="Gurugram (MCG)">Gurugram (MCG, Haryana)</option>
+                  <option value="Ghaziabad & East Delhi (GMC/EDMC)">Ghaziabad & East Delhi (GMC/EDMC)</option>
                 </select>
               </div>
 
