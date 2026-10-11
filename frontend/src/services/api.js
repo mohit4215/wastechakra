@@ -152,21 +152,27 @@ export const saveLocalNodes = (nodes) => {
   localNodes = nodes
   try {
     localStorage.setItem('ecofleet_nodes', JSON.stringify(nodes))
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not write ecofleet_nodes to localStorage:', e)
+  }
 }
 
 export const saveLocalTrucks = (trucks) => {
   localTrucks = trucks
   try {
     localStorage.setItem('ecofleet_trucks', JSON.stringify(trucks))
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not write ecofleet_trucks to localStorage:', e)
+  }
 }
 
 export const saveLocalIssues = (issues) => {
   reportedIssues = issues
   try {
     localStorage.setItem('ecofleet_issues', JSON.stringify(issues))
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not write ecofleet_issues to localStorage:', e)
+  }
 }
 
 export const resetMCDFactoryData = () => {
@@ -176,7 +182,9 @@ export const resetMCDFactoryData = () => {
     localStorage.removeItem('ecofleet_nodes')
     localStorage.removeItem('ecofleet_trucks')
     localStorage.removeItem('ecofleet_issues')
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not remove keys from localStorage:', e)
+  }
   return { nodes: localNodes, trucks: localTrucks }
 }
 

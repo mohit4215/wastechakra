@@ -247,7 +247,7 @@ class StopStatusUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CitizenReport(BaseModel):
-    node_id: str
+    node_id: Optional[str] = None
     reporter_name: Optional[str] = "Citizen"
     reporter_phone: Optional[str] = None
     issue_type: str = Field("overflow", description="overflow, damaged_bin, odor, street_waste")

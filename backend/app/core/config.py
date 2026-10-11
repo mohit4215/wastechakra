@@ -18,11 +18,14 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://localhost:80",
         "http://localhost",
+        "https://mohit4215.github.io",
+        "https://wastechakra.vercel.app",
     ]
-    # Regex covers Vercel preview deployments (*.vercel.app) and Railway (*.railway.app)
+    # Regex covers GitHub Pages, Vercel deployments, Railway, and localhost
     CORS_ORIGIN_REGEX: str = (
         r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
-        r"|https://[a-zA-Z0-9-]+-[a-zA-Z0-9]+\.vercel\.app"
+        r"|https://[a-zA-Z0-9-]+\.github\.io"
+        r"|https://[a-zA-Z0-9-]+\.vercel\.app"
         r"|https://[a-zA-Z0-9-]+\.up\.railway\.app"
     )
 
