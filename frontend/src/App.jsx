@@ -5,6 +5,7 @@ import {
   ShieldCheck, AlertTriangle, Play, Sparkles, Award
 } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
+import ErrorBoundary from './components/common/ErrorBoundary.jsx'
 import Navbar from './components/common/Navbar.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import RouteMap from './pages/RouteMap.jsx'
@@ -174,11 +175,13 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <HashRouter>
-        <AppShell />
-      </HashRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <HashRouter>
+          <AppShell />
+        </HashRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 

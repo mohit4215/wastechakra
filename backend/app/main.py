@@ -65,6 +65,20 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+@app.exception_handler(Exception)
+async def global_unhandled_exception_handler(request: Request, exc: Exception):
+    """Structured RFC-7807 problem details handler for unhandled server exceptions."""
+    logger.exception("Unhandled API exception on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "InternalServerError",
+            "message": "An unexpected server error occurred while processing the municipal telemetry request.",
+            "path": request.url.path,
+        },
+    )
+
 # ---------------------------------------------------------------------------
 # CORS — allow frontend origins
 # ---------------------------------------------------------------------------

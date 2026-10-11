@@ -5,22 +5,29 @@ import {
   generateDailyForecast,
   solveCVRP,
 } from '../data/mockData.js'
+import logger from '../utils/logger.js'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : '/api',
   timeout: 8000,
 })
 
-// OpenRouteService API Token for real Delhi road network geometries
-export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVkN2Q1ZDIzZTBiMDQ0ZWQ5MmJlYzg4YmNjODJjMTY1IiwiaCI6Im11cm11cjY0In0='
+// OpenRouteService API Token for real Delhi road network geometries (from environment)
+export const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY || ''
 
 /**
  * Fetch real driving road geometry coordinates [[lat, lon], ...] from OpenRouteService
- * Falls back to straight-line coords if rate-limited or offline.
+ * Falls back to straight-line coords if key missing, rate-limited, or offline.
  */
 export async function fetchRoadGeometry(coordinatePairs) {
   // coordinatePairs format: [[lat1, lon1], [lat2, lon2], ...]
   if (!coordinatePairs || coordinatePairs.length < 2) return coordinatePairs
+
+  // If no ORS API key configured, use great-circle direct segments without network call
+  if (!ORS_API_KEY) {
+    logger.debug('ORS_API_KEY not configured; using geodesic segments')
+    return coordinatePairs
+  }
 
   // ORS expects [longitude, latitude]
   const coordinates = coordinatePairs.map(([lat, lon]) => [lon, lat])
@@ -43,7 +50,7 @@ export async function fetchRoadGeometry(coordinatePairs) {
       return response.data.features[0].geometry.coordinates.map(([lon, lat]) => [lat, lon])
     }
   } catch (err) {
-    console.warn('ORS live road navigation fallback to direct segments:', err.message)
+    logger.warn('ORS live road navigation fallback to direct segments:', err.message)
   }
 
   return coordinatePairs
@@ -87,7 +94,7 @@ const getStoredNodes = () => {
       if (Array.isArray(parsed) && parsed.length >= 40) return parsed
     }
   } catch (e) {
-    console.warn('Could not read ecofleet_nodes:', e)
+    logger.warn('Could not read ecofleet_nodes:', e)
   }
   return [...SAMPLE_NODES]
 }
@@ -100,7 +107,7 @@ const getStoredTrucks = () => {
       if (Array.isArray(parsed) && parsed.length >= 8) return parsed
     }
   } catch (e) {
-    console.warn('Could not read ecofleet_trucks:', e)
+    logger.warn('Could not read ecofleet_trucks:', e)
   }
   return [...SEED_TRUCKS]
 }
@@ -110,7 +117,7 @@ const getStoredIssues = () => {
     const saved = localStorage.getItem('ecofleet_issues')
     if (saved) return JSON.parse(saved)
   } catch (e) {
-    console.warn('Could not read ecofleet_issues:', e)
+    logger.warn('Could not read ecofleet_issues:', e)
   }
   return [
     {
@@ -185,7 +192,7 @@ export const loginUser = async ({ email, password }) => {
     }
     return res.data
   } catch (err) {
-    console.warn('[EcoFleet] Backend offline, authenticating in resilient Evaluator/Demo mode')
+    logger.info('[EcoFleet] Backend offline, authenticating in resilient Evaluator/Demo mode')
     // Instant fallback demo credentials
     const demoUser = {
       email: email || 'admin@ecofleet.ai',

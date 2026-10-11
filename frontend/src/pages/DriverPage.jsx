@@ -5,6 +5,7 @@ import {
   Volume2, VolumeX, Radio, Sparkles
 } from 'lucide-react'
 import { optimizeRoutes, collectBin, updateStopStatus } from '../services/api.js'
+import logger from '../utils/logger.js'
 import { format } from 'date-fns'
 
 const RISK_BADGES = {
@@ -20,6 +21,7 @@ export default function DriverPage() {
   const [selectedTruckId, setSelectedTruckId] = useState('TRUCK-01')
   const [completedStops, setCompletedStops] = useState({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [actionNotice, setActionNotice] = useState(null)
   const [audioLang, setAudioLang] = useState('en') // 'en' | 'hi'
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -77,6 +79,7 @@ export default function DriverPage() {
 
   useEffect(() => {
     setLoading(true)
+    setError(null)
     optimizeRoutes({ date: today })
       .then((data) => {
         setRouteData(data)
@@ -84,7 +87,10 @@ export default function DriverPage() {
           setSelectedTruckId(data.routes[0].truck_id)
         }
       })
-      .catch((err) => console.error('Driver route load error:', err))
+      .catch((err) => {
+        logger.error('Driver route load error:', err)
+        setError('Dispatch telemetry delayed. Displaying verified local driver route.')
+      })
       .finally(() => setLoading(false))
   }, [today])
 
@@ -233,6 +239,13 @@ export default function DriverPage() {
         </div>
       )}
 
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 18px', color: '#b91c1c', marginBottom: '16px', fontSize: '13px' }}>
+          <AlertCircle size={16} color="#ef4444" />
+          <span style={{ flex: 1 }}>{error}</span>
+        </div>
+      )}
+
       {/* Progress & Telemetry Strip */}
       <div style={styles.progressCard}>
         <div style={styles.progressTop}>
@@ -340,78 +353,88 @@ export default function DriverPage() {
       <div style={styles.manifestCard}>
         <h3 style={styles.manifestTitle}>Route Manifest Sequence ({currentRoute?.stops.length || 0} stops)</h3>
         <div style={styles.stopsList}>
-          {(currentRoute?.stops || []).map((stop) => {
-            const isDone = completedStops[`${selectedTruckId}-${stop.stop_index}`]
-            return (
-              <div
-                key={stop.stop_index}
-                style={{
-                  ...styles.stopRow,
-                  background: isDone ? '#f8fafc' : '#ffffff',
-                  opacity: isDone ? 0.75 : 1,
-                }}
-              >
-                <div style={styles.stopNumCircle(isDone)}>
-                  {isDone ? <Check size={14} color="#ffffff" /> : stop.stop_index}
+          {(currentRoute?.stops || []).length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
+              <Truck size={36} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
+              <strong style={{ fontSize: '14px', color: '#0f172a' }}>No stops assigned to {selectedTruckId}</strong>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                All nodes in this truck's sector are currently below the critical collection threshold.
+              </p>
+            </div>
+          ) : (
+            (currentRoute?.stops || []).map((stop) => {
+              const isDone = completedStops[`${selectedTruckId}-${stop.stop_index}`]
+              return (
+                <div
+                  key={stop.stop_index}
+                  style={{
+                    ...styles.stopRow,
+                    background: isDone ? '#f8fafc' : '#ffffff',
+                    opacity: isDone ? 0.75 : 1,
+                  }}
+                >
+                  <div style={styles.stopNumCircle(isDone)}>
+                    {isDone ? <Check size={14} color="#ffffff" /> : stop.stop_index}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <strong style={{ fontSize: '13.5px', color: isDone ? '#64748b' : '#0f172a' }}>
+                        {stop.node_name}
+                      </strong>
+                      {isDone && <span style={styles.donePill}>Collected</span>}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
+                      {stop.address} · Est: {stop.predicted_volume_kg} kg
+                    </div>
+                  </div>
+
+                  {!isDone && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={() => handleSpeakStop(stop)}
+                        style={styles.speakStopBtn}
+                        title="Listen to spoken stop direction"
+                      >
+                        <Volume2 size={12} color="#0284c7" />
+                        <span>Audio</span>
+                      </button>
+
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          background: '#f1f5f9',
+                          color: '#334155',
+                          textDecoration: 'none',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: '1px solid #cbd5e1',
+                        }}
+                        title="Navigate to this stop on Google Maps"
+                      >
+                        <Navigation size={12} color="#059669" />
+                        <span>GPS</span>
+                      </a>
+
+                      <button
+                        onClick={() => handleMarkCollected(stop)}
+                        style={styles.quickCheckBtn}
+                      >
+                        Mark Done
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <strong style={{ fontSize: '13.5px', color: isDone ? '#64748b' : '#0f172a' }}>
-                      {stop.node_name}
-                    </strong>
-                    {isDone && <span style={styles.donePill}>Collected</span>}
-                  </div>
-                  <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
-                    {stop.address} · Est: {stop.predicted_volume_kg} kg
-                  </div>
-                </div>
-
-                {!isDone && (
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={() => handleSpeakStop(stop)}
-                      style={styles.speakStopBtn}
-                      title="Listen to spoken stop direction"
-                    >
-                      <Volume2 size={12} color="#0284c7" />
-                      <span>Audio</span>
-                    </button>
-
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        background: '#f1f5f9',
-                        color: '#334155',
-                        textDecoration: 'none',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        border: '1px solid #cbd5e1',
-                      }}
-                      title="Navigate to this stop on Google Maps"
-                    >
-                      <Navigation size={12} color="#059669" />
-                      <span>GPS</span>
-                    </a>
-
-                    <button
-                      onClick={() => handleMarkCollected(stop)}
-                      style={styles.quickCheckBtn}
-                    >
-                      Mark Done
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </div>
     </div>

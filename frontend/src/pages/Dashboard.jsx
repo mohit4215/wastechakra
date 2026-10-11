@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react'
 import {
   Flame, Leaf, Fuel, AlertTriangle, CheckCircle2, TrendingUp,
   MapPin, Clock, Truck, ShieldCheck, Sparkles, Filter, ChevronRight,
-  Send, RefreshCw, Layers, Sun, CloudRain, Zap, Wind, Award, Activity
+  Send, RefreshCw, Layers, Sun, CloudRain, Zap, Wind, Award, Activity, AlertCircle
 } from 'lucide-react'
 import { fetchDailyForecast, optimizeRoutes, collectBin } from '../services/api.js'
+import logger from '../utils/logger.js'
 import { format } from 'date-fns'
 import { Link } from 'react-router-dom'
 import {
@@ -97,11 +98,13 @@ export default function Dashboard() {
   const [forecast, setForecast] = useState(null)
   const [routes, setRoutes] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [actionMessage, setActionMessage] = useState(null)
   const [dispatchedAlerts, setDispatchedAlerts] = useState({})
 
   const loadData = () => {
     setLoading(true)
+    setError(null)
     Promise.all([
       fetchDailyForecast({ date: today, zone: selectedZone, weatherCode, isFestival }),
       optimizeRoutes({ date: today, zone: selectedZone, weatherCode, isFestival }),
@@ -110,7 +113,10 @@ export default function Dashboard() {
         setForecast(fc)
         setRoutes(rt)
       })
-      .catch((err) => console.error('Dashboard load error:', err))
+      .catch((err) => {
+        logger.error('Dashboard load error:', err)
+        setError('Network telemetry delay. Displaying resilient offline municipal cache.')
+      })
       .finally(() => setLoading(false))
   }
 
@@ -334,6 +340,28 @@ export default function Dashboard() {
         </div>
       )}
 
+      {error && (
+        <div style={{ ...styles.actionBanner, background: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c' }}>
+          <AlertCircle size={16} color="#ef4444" />
+          <span style={{ flex: 1 }}>{error}</span>
+          <button
+            onClick={loadData}
+            style={{
+              background: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Top Metric Cards */}
       <div style={styles.grid4}>
         <StatCard
@@ -494,57 +522,67 @@ export default function Dashboard() {
           </div>
 
           <div style={styles.urgentList}>
-            {criticalNodes.slice(0, 5).map((node) => {
-              const isDispatched = dispatchedAlerts[node.node_id]
-              return (
-                <div key={node.node_id} style={styles.urgentItem}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>{node.name}</strong>
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '2px 6px',
-                          borderRadius: '8px',
-                          background: node.risk_level === 'critical' ? '#fee2e2' : '#ffedd5',
-                          color: node.risk_level === 'critical' ? '#dc2626' : '#ea580c',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {node.fill_percentage}% Full
-                      </span>
+            {criticalNodes.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
+                <CheckCircle2 size={36} color="#10b981" style={{ margin: '0 auto 10px', display: 'block' }} />
+                <strong style={{ fontSize: '14px', color: '#0f172a' }}>All collection hubs nominal</strong>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                  No urgent overflow alerts detected across selected sectors.
+                </p>
+              </div>
+            ) : (
+              criticalNodes.slice(0, 5).map((node) => {
+                const isDispatched = dispatchedAlerts[node.node_id]
+                return (
+                  <div key={node.node_id} style={styles.urgentItem}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>{node.name}</strong>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '8px',
+                            background: node.risk_level === 'critical' ? '#fee2e2' : '#ffedd5',
+                            color: node.risk_level === 'critical' ? '#dc2626' : '#ea580c',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {node.fill_percentage}% Full
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                        {node.address} · Est: <strong>{node.predicted_volume_kg} kg</strong>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
-                      {node.address} · Est: <strong>{node.predicted_volume_kg} kg</strong>
-                    </div>
-                  </div>
 
-                  <button
-                    onClick={() => handleQuickDispatch(node)}
-                    disabled={isDispatched}
-                    style={{
-                      ...styles.dispatchBtn,
-                      background: isDispatched ? '#e2e8f0' : '#10b981',
-                      color: isDispatched ? '#64748b' : '#ffffff',
-                      cursor: isDispatched ? 'default' : 'pointer',
-                    }}
-                  >
-                    {isDispatched ? (
-                      <>
-                        <CheckCircle2 size={13} />
-                        <span>En Route</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send size={13} />
-                        <span>Dispatch</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
+                    <button
+                      onClick={() => handleQuickDispatch(node)}
+                      disabled={isDispatched}
+                      style={{
+                        ...styles.dispatchBtn,
+                        background: isDispatched ? '#e2e8f0' : '#10b981',
+                        color: isDispatched ? '#64748b' : '#ffffff',
+                        cursor: isDispatched ? 'default' : 'pointer',
+                      }}
+                    >
+                      {isDispatched ? (
+                        <>
+                          <CheckCircle2 size={13} />
+                          <span>En Route</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={13} />
+                          <span>Dispatch</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
 

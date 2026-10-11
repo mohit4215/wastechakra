@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loginUser, logoutUser } from '../services/api.js';
+import logger from '../utils/logger.js';
 
 const AuthContext = createContext(null);
 
@@ -54,7 +55,7 @@ export function AuthProvider({ children }) {
         setIsAuthenticated(true);
       }
     } catch (err) {
-      console.error('Failed to restore session:', err);
+      logger.error('Failed to restore session:', err);
     } finally {
       setIsLoading(false);
     }

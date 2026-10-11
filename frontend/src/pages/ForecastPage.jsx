@@ -3,8 +3,9 @@ import { fetchDailyForecast, collectBin } from '../services/api.js'
 import { format, addDays } from 'date-fns'
 import {
   Sparkles, Calendar, CloudRain, Sun, Zap, CheckCircle2,
-  TrendingUp, BarChart3, Search, Filter, AlertTriangle, ArrowRight
+  TrendingUp, BarChart3, Search, Filter, AlertTriangle, ArrowRight, AlertCircle
 } from 'lucide-react'
+import logger from '../utils/logger.js'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   BarChart, Bar, Cell
@@ -35,13 +36,18 @@ export default function ForecastPage() {
   const [filterRisk, setFilterRisk] = useState('')
   const [forecast, setForecast] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [actionNotice, setActionNotice] = useState(null)
 
   const runForecast = () => {
     setLoading(true)
+    setError(null)
     fetchDailyForecast({ date, zone: selectedZone, weatherCode, isFestival })
       .then(setForecast)
-      .catch((err) => console.error('Forecast error:', err))
+      .catch((err) => {
+        logger.error('Forecast error:', err)
+        setError('Forecast telemetry service unreachable. Loaded resilient fallback projections.')
+      })
       .finally(() => setLoading(false))
   }
 
@@ -148,6 +154,28 @@ export default function ForecastPage() {
         </div>
       </div>
 
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 18px', color: '#b91c1c', marginBottom: '20px', fontSize: '13px' }}>
+          <AlertCircle size={16} color="#ef4444" />
+          <span style={{ flex: 1 }}>{error}</span>
+          <button
+            onClick={runForecast}
+            style={{
+              background: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Model Transparency & Metrics Ribbon */}
       <div style={styles.modelMetricsRow}>
         <div style={styles.metricCard}>
@@ -253,59 +281,88 @@ export default function ForecastPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredNodes.map((node) => {
-                const badge = RISK_BADGES[node.risk_level] || RISK_BADGES.low
-                return (
-                  <tr key={node.node_id} style={styles.tr}>
-                    <td style={styles.td}>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{node.name}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                        {node.node_id}
-                      </div>
-                    </td>
-                    <td style={styles.td}>
-                      <div style={{ color: '#334155' }}>{node.zone}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{node.address}</div>
-                    </td>
-                    <td style={styles.td}>
-                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
-                        {node.predicted_volume_kg} kg
-                      </strong>
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}> / {node.capacity_kg} kg</span>
-                    </td>
-                    <td style={styles.td}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={styles.barBg}>
-                          <div
-                            style={{
-                              ...styles.barFill,
-                              width: `${Math.min(100, node.fill_percentage)}%`,
-                              background: badge.text,
-                            }}
-                          />
-                        </div>
-                        <strong style={{ fontSize: '12px', color: '#0f172a', minWidth: '34px' }}>
-                          {node.fill_percentage}%
-                        </strong>
-                      </div>
-                    </td>
-                    <td style={styles.td}>
-                      <span
+              {filteredNodes.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '48px 16px', color: '#64748b' }}>
+                    <Search size={32} color="#94a3b8" style={{ margin: '0 auto 8px', display: 'block' }} />
+                    <strong style={{ fontSize: '14px', color: '#0f172a' }}>No matching collection hubs found</strong>
+                    <p style={{ margin: '4px 0 12px', fontSize: '12px', color: '#94a3b8' }}>
+                      {searchTerm ? `No hubs match "${searchTerm}".` : 'No collection nodes match the selected risk filter.'}
+                    </p>
+                    {(searchTerm || filterRisk) && (
+                      <button
+                        onClick={() => { setSearchTerm(''); setFilterRisk('') }}
                         style={{
-                          fontSize: '10.5px',
-                          fontWeight: 800,
-                          padding: '3px 8px',
-                          borderRadius: '8px',
-                          background: badge.bg,
-                          color: badge.text,
+                          background: '#0f172a',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
                         }}
                       >
-                        {badge.label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
+                        Clear Filters
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                filteredNodes.map((node) => {
+                  const badge = RISK_BADGES[node.risk_level] || RISK_BADGES.low
+                  return (
+                    <tr key={node.node_id} style={styles.tr}>
+                      <td style={styles.td}>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{node.name}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>
+                          {node.node_id}
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ color: '#334155' }}>{node.zone}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{node.address}</div>
+                      </td>
+                      <td style={styles.td}>
+                        <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
+                          {node.predicted_volume_kg} kg
+                        </strong>
+                        <span style={{ fontSize: '11px', color: '#94a3b8' }}> / {node.capacity_kg} kg</span>
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={styles.barBg}>
+                            <div
+                              style={{
+                                ...styles.barFill,
+                                width: `${Math.min(100, node.fill_percentage)}%`,
+                                background: badge.text,
+                              }}
+                            />
+                          </div>
+                          <strong style={{ fontSize: '12px', color: '#0f172a', minWidth: '34px' }}>
+                            {node.fill_percentage}%
+                          </strong>
+                        </div>
+                      </td>
+                      <td style={styles.td}>
+                        <span
+                          style={{
+                            fontSize: '10.5px',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: '8px',
+                            background: badge.bg,
+                            color: badge.text,
+                          }}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

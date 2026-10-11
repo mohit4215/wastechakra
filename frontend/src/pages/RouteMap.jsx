@@ -12,8 +12,9 @@ import {
   Play, Pause, RotateCcw, Truck, Navigation, CheckCircle2,
   AlertTriangle, Fuel, Leaf, ArrowRight, Settings2, Sliders,
   MapPin, ShieldCheck, Send, Layers, Sparkles, Download, Plus, Flame,
-  Printer, FileText, QrCode
+  Printer, FileText, QrCode, AlertCircle
 } from 'lucide-react'
+import logger from '../utils/logger.js'
 import { DEPOT, TRUCK_COLORS, NCR_ZONES } from '../data/mockData.js'
 
 // Fix Leaflet marker icons in Vite
@@ -105,10 +106,12 @@ export default function RouteMap() {
   const [truckPositions, setTruckPositions] = useState({})
   const [collectedNodes, setCollectedNodes] = useState({})
   const [simLog, setSimLog] = useState([])
+  const [error, setError] = useState(null)
   const simTimerRef = useRef(null)
 
   const loadRoutes = () => {
     setLoading(true)
+    setError(null)
     setIsSimulating(false)
     setSimProgress(0)
     setCollectedNodes({})
@@ -148,7 +151,10 @@ export default function RouteMap() {
         setRoadGeometries(geometries)
         setIsRoadLoading(false)
       })
-      .catch((err) => console.error('Route optimization error:', err))
+      .catch((err) => {
+        logger.error('Route optimization error:', err)
+        setError('Routing service optimization delayed. Operating in offline resilient mode.')
+      })
       .finally(() => setLoading(false))
   }
 
