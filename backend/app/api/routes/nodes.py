@@ -215,10 +215,15 @@ async def delete_node(
     """Remove a decommissioned bin cluster."""
     try:
         stmt = delete(CollectionNodeModel).where(CollectionNodeModel.node_id == node_id)
-        await db.execute(stmt)
+        result = await db.execute(stmt)
         await db.commit()
-    except Exception:
-        pass
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"Node '{node_id}' not found")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to delete node %s: %s", node_id, exc)
+        raise HTTPException(status_code=500, detail="Failed to delete node.")
     return None
 
 
@@ -277,7 +282,10 @@ async def report_bin_issue(
     Allow citizens or field workers to report bin overflows, odor, or damage.
     Prioritizes this node in the next route optimization run under SWM Rules 2026.
     """
+    from app.db.models import CitizenReportModel
+
     now = datetime.now(timezone.utc)
+    ticket_id = f"TICK-{int(now.timestamp()) % 100000:05d}"
     try:
         log = WasteLog(
             node_id=node_id,
@@ -288,7 +296,22 @@ async def report_bin_issue(
             is_festival=False,
         )
         db.add(log)
+
+        # Persist the full grievance (issue type, reporter contact, description)
+        # so it can be listed on the citizen portal audit trail.
+        grievance = CitizenReportModel(
+            ticket_id=ticket_id,
+            node_id=node_id,
+            reporter_name=report.reporter_name,
+            reporter_phone=report.reporter_phone,
+            issue_type=report.issue_type,
+            description=report.description,
+            estimated_overflow_kg=report.estimated_overflow_kg or 100.0,
+        )
+        db.add(grievance)
         await db.commit()
+        await db.refresh(grievance)
+        ticket_id = grievance.ticket_id
     except Exception as exc:
         logger.warning("Could not persist citizen report: %s", exc)
 
@@ -297,6 +320,45 @@ async def report_bin_issue(
         "node_id": node_id,
         "issue_type": report.issue_type,
         "reported_at": now.isoformat(),
-        "ticket_id": f"TICK-{int(now.timestamp()) % 100000}",
+        "ticket_id": ticket_id,
         "message": "Report logged. Routing engine notified for priority pickup.",
     }
+
+
+@router.get("/reports/recent", summary="Recent citizen grievances (public audit board)")
+async def recent_citizen_reports(
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return the most recent citizen grievances for the public audit board.
+    Matches the ticket shape consumed by the citizen portal frontend.
+    """
+    from sqlalchemy import desc as _desc
+
+    from app.db.models import CitizenReportModel
+
+    try:
+        stmt = select(CitizenReportModel).order_by(_desc(CitizenReportModel.created_at)).limit(limit)
+        res = await db.execute(stmt)
+        reports = res.scalars().all()
+        return [
+            {
+                "ticket_id": r.ticket_id,
+                "node_id": r.node_id,
+                "issue_type": r.issue_type,
+                "reporter_name": r.reporter_name or "Citizen",
+                "reported_at": r.created_at.isoformat() if r.created_at else now_iso(),
+                "status": r.status,
+                "description": r.description,
+                "estimated_overflow_kg": r.estimated_overflow_kg,
+            }
+            for r in reports
+        ]
+    except Exception as exc:
+        logger.warning("Could not fetch citizen reports: %s", exc)
+        return []
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
