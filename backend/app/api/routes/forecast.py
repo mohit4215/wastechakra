@@ -8,7 +8,7 @@ from typing import Optional
 from app.core.security import get_current_user_token, require_role, TokenData
 from app.core.weather import get_delhi_weather
 from app.data.sample_nodes import SAMPLE_NODES
-from app.ml.forecaster import batch_forecast
+from app.ml.forecaster import batch_forecast, get_forecast_engine_status
 from app.models.schemas import ForecastRequest, ForecastResponse, NodeForecast
 
 router = APIRouter()
@@ -111,3 +111,10 @@ async def get_weather(
     except ValueError:
         raise HTTPException(status_code=422, detail="date must be ISO 8601 (YYYY-MM-DD)")
     return await get_delhi_weather(target)
+
+
+@router.get("/engine", summary="Forecast engine mode (trained model vs heuristic fallback)")
+async def forecast_engine_status(
+    _token: TokenData = Depends(require_role("manager", "admin")),
+):
+    return get_forecast_engine_status()

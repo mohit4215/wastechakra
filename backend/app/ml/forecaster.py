@@ -31,11 +31,11 @@ Mathematical & Architectural Principles:
 from __future__ import annotations
 
 import logging
-import math
 import os
+import hashlib
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -67,6 +67,15 @@ def _try_load_model():
 
 
 _MODEL = _try_load_model()
+
+
+def get_forecast_engine_status() -> dict:
+    """Return currently active forecast inference mode."""
+    return {
+        "mode": "trained_model" if _MODEL is not None else "heuristic_fallback",
+        "model_path": str(MODEL_PATH),
+        "model_loaded": _MODEL is not None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +144,8 @@ def _heuristic_forecast(
     festival_multiplier = 1.40 if is_festival else 1.0
 
     # Small deterministic noise based on node_id hash
-    seed = hash(node.get("node_id", "x") + str(target_date)) % 1000
+    seed_source = f"{node.get('node_id', 'x')}::{target_date.isoformat()}"
+    seed = int(hashlib.sha256(seed_source.encode("utf-8")).hexdigest()[:8], 16) % 1000
     noise = 1.0 + (seed - 500) / 5000.0   # ±10% noise
 
     fill_pct = base_fill * day_multiplier * weather_multiplier * festival_multiplier * noise

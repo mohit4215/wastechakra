@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Leaf, LogIn, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react'
+import { Leaf, LogIn, Eye, EyeOff, AlertCircle, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 
 export default function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@ecofleet.ai')
-  const [password, setPassword] = useState('EcoFleet@2026')
+  const demoAuthEnabled = String(import.meta.env.VITE_ENABLE_DEMO_AUTH || 'false').toLowerCase() === 'true'
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -61,17 +62,21 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 1-Click Demo Login */}
-        <button type="button" onClick={handleDemoLogin} style={styles.demoLoginBtn}>
-          <Sparkles size={16} color="#047857" />
-          <span>Quick Evaluator Access (1-Click Demo)</span>
-        </button>
+        {demoAuthEnabled && (
+          <>
+            {/* 1-Click Demo Login */}
+            <button type="button" onClick={handleDemoLogin} style={styles.demoLoginBtn}>
+              <Sparkles size={16} color="#047857" />
+              <span>Quick Evaluator Access (1-Click Demo)</span>
+            </button>
 
-        <div style={styles.dividerRow}>
-          <div style={styles.dividerLine} />
-          <span style={styles.dividerText}>or sign in with credentials</span>
-          <div style={styles.dividerLine} />
-        </div>
+            <div style={styles.dividerRow}>
+              <div style={styles.dividerLine} />
+              <span style={styles.dividerText}>or sign in with credentials</span>
+              <div style={styles.dividerLine} />
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.field}>
@@ -122,17 +127,19 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={styles.demoHintBox}>
-          <strong>Default Evaluation Credentials:</strong>
-          <div style={styles.hintRow}>
-            <span>Email:</span>
-            <code>admin@ecofleet.ai</code>
+        {demoAuthEnabled && (
+          <div style={styles.demoHintBox}>
+            <strong>Default Evaluation Credentials:</strong>
+            <div style={styles.hintRow}>
+              <span>Email:</span>
+              <code>admin@ecofleet.ai</code>
+            </div>
+            <div style={styles.hintRow}>
+              <span>Password:</span>
+              <code>EcoFleet@2026</code>
+            </div>
           </div>
-          <div style={styles.hintRow}>
-            <span>Password:</span>
-            <code>EcoFleet@2026</code>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

@@ -38,21 +38,6 @@ export function AuthProvider({ children }) {
           setUser(parsedUser);
           setIsAuthenticated(true);
         }
-      } else {
-        // Automatically pre-authenticate in evaluator demo mode if no prior session
-        const defaultUser = {
-          email: 'admin@ecofleet.ai',
-          full_name: 'Aditya Singh (NCR Municipal Administrator)',
-          name: 'Aditya Singh',
-          role: 'admin',
-          zone: 'Delhi NCR Metropolitan Region',
-        };
-        const defaultToken = 'demo-jwt-token-wastechakra-2026';
-        localStorage.setItem(TOKEN_KEY, defaultToken);
-        localStorage.setItem(USER_KEY, JSON.stringify(defaultUser));
-        setToken(defaultToken);
-        setUser(defaultUser);
-        setIsAuthenticated(true);
       }
     } catch (err) {
       logger.error('Failed to restore session:', err);

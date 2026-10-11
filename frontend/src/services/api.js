@@ -14,6 +14,7 @@ const api = axios.create({
 
 // OpenRouteService API Token for real Delhi road network geometries (from environment)
 export const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY || ''
+const DEMO_AUTH_ENABLED = String(import.meta.env.VITE_ENABLE_DEMO_AUTH || 'false').toLowerCase() === 'true'
 
 /**
  * Fetch real driving road geometry coordinates [[lat, lon], ...] from OpenRouteService
@@ -152,21 +153,27 @@ export const saveLocalNodes = (nodes) => {
   localNodes = nodes
   try {
     localStorage.setItem('ecofleet_nodes', JSON.stringify(nodes))
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not persist ecofleet_nodes:', e)
+  }
 }
 
 export const saveLocalTrucks = (trucks) => {
   localTrucks = trucks
   try {
     localStorage.setItem('ecofleet_trucks', JSON.stringify(trucks))
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not persist ecofleet_trucks:', e)
+  }
 }
 
 export const saveLocalIssues = (issues) => {
   reportedIssues = issues
   try {
     localStorage.setItem('ecofleet_issues', JSON.stringify(issues))
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not persist ecofleet_issues:', e)
+  }
 }
 
 export const resetMCDFactoryData = () => {
@@ -176,7 +183,9 @@ export const resetMCDFactoryData = () => {
     localStorage.removeItem('ecofleet_nodes')
     localStorage.removeItem('ecofleet_trucks')
     localStorage.removeItem('ecofleet_issues')
-  } catch (e) {}
+  } catch (e) {
+    logger.debug('Could not clear local simulation storage:', e)
+  }
   return { nodes: localNodes, trucks: localTrucks }
 }
 
@@ -192,6 +201,9 @@ export const loginUser = async ({ email, password }) => {
     }
     return res.data
   } catch (err) {
+    if (!DEMO_AUTH_ENABLED) {
+      throw err
+    }
     logger.info('[EcoFleet] Backend offline, authenticating in resilient Evaluator/Demo mode')
     // Instant fallback demo credentials
     const demoUser = {

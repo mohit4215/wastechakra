@@ -6,6 +6,7 @@ Built for WasteChakra 2026 — AI for Smart Municipal Governance.
 from __future__ import annotations
 
 import logging
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -17,10 +18,10 @@ from slowapi.util import get_remote_address
 
 from app.api.routes import analytics, auth, fleet, forecast, nodes, routing
 from app.core.config import settings
-from app.core.database import init_db
+from app.core.database import check_database_connectivity, init_db
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("ecofleet")
@@ -28,7 +29,11 @@ logger = logging.getLogger("ecofleet")
 # ---------------------------------------------------------------------------
 # Rate limiter (in-memory; swap storage_uri for Redis in production)
 # ---------------------------------------------------------------------------
-limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[f"{settings.RATE_LIMIT_PER_MINUTE}/minute"],
+    storage_uri=settings.REDIS_URL or None,
+)
 
 
 @asynccontextmanager
@@ -69,15 +74,33 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.exception_handler(Exception)
 async def global_unhandled_exception_handler(request: Request, exc: Exception):
     """Structured RFC-7807 problem details handler for unhandled server exceptions."""
-    logger.exception("Unhandled API exception on %s %s: %s", request.method, request.url.path, exc)
+    request_id = getattr(request.state, "request_id", None)
+    logger.exception(
+        "Unhandled API exception on %s %s [request_id=%s]: %s",
+        request.method,
+        request.url.path,
+        request_id,
+        exc,
+    )
     return JSONResponse(
         status_code=500,
         content={
             "error": "InternalServerError",
             "message": "An unexpected server error occurred while processing the municipal telemetry request.",
             "path": request.url.path,
+            "request_id": request_id,
         },
     )
+
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 # ---------------------------------------------------------------------------
 # CORS — allow frontend origins
@@ -129,3 +152,22 @@ async def health_check():
         "service": "ecofleet-backend",
         "environment": "development" if settings.DEBUG else "production",
     }
+
+
+@app.get("/health/live", tags=["Health"])
+async def liveness_check():
+    return {"status": "ok", "service": "ecofleet-backend", "check": "liveness"}
+
+
+@app.get("/health/ready", tags=["Health"])
+async def readiness_check():
+    db_ready = await check_database_connectivity()
+    return JSONResponse(
+        status_code=200 if db_ready else 503,
+        content={
+            "status": "ready" if db_ready else "degraded",
+            "service": "ecofleet-backend",
+            "check": "readiness",
+            "dependencies": {"database": "up" if db_ready else "down"},
+        },
+    )
