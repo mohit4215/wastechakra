@@ -27,11 +27,14 @@ logger = logging.getLogger(__name__)
 
 _R_EARTH_KM = 6371.0
 
-# Diesel truck parameters
+# Diesel truck parameters (CPCB / ARAI standard heavy municipal compactors)
 DIESEL_L_PER_KM = 0.35           # avg consumption l/km (loaded)
 CO2_KG_PER_LITRE = 2.68          # CO₂ per litre of diesel
+PM25_G_PER_KM = 0.285            # Particulate Matter PM2.5 emissions (g/km) for BS-IV compactor
+NOX_G_PER_KM = 3.420             # Nitrogen Oxides NOx emissions (g/km) for heavy diesel vehicle
 AVG_CITY_SPEED_KMH = 28.0        # average speed in Delhi traffic
 SERVICE_TIME_MIN_PER_STOP = 8    # minutes to service each bin stop
+ROAD_TORTUOSITY_FACTOR = 1.32    # Urban Delhi road network detour ratio vs great-circle haversine
 
 # Without optimisation: trucks drive full baseline routes regardless of fill
 BASELINE_DISTANCE_KM_PER_TRUCK = 80.0
@@ -44,7 +47,7 @@ ORTOOLS_TIME_LIMIT_SEC = 15
 
 
 # ---------------------------------------------------------------------------
-# Data classes
+# Data classes & Regional Topologies
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -53,6 +56,78 @@ class DepotConfig:
     lon: float
     name: str
     zone: str = "MCD South Zone"
+
+
+# Delhi NCR 5 Regional Depots covering all municipal operational clusters
+NCR_DEPOTS: Dict[str, DepotConfig] = {
+    "south": DepotConfig(
+        lat=28.5355,
+        lon=77.2510,
+        name="MCD South Zone Depot, Okhla",
+        zone="South Delhi",
+    ),
+    "central": DepotConfig(
+        lat=28.6289,
+        lon=77.2065,
+        name="NDMC Mandir Marg Depot, Central Delhi",
+        zone="Central & New Delhi",
+    ),
+    "noida": DepotConfig(
+        lat=28.4986,
+        lon=77.4124,
+        name="Sector 145 Solid Waste Depot, Noida Expressway",
+        zone="Noida & Greater Noida",
+    ),
+    "gurugram": DepotConfig(
+        lat=28.4891,
+        lon=77.0025,
+        name="MCG Daultabad Integrated Waste Transfer Station",
+        zone="Gurugram / Haryana NCR",
+    ),
+    "east": DepotConfig(
+        lat=28.6280,
+        lon=77.3298,
+        name="GMC Ghazipur Central Waste Depot",
+        zone="East Delhi & Ghaziabad",
+    ),
+}
+
+
+def get_depot_for_zone(zone_name: Optional[str] = None) -> DepotConfig:
+    """
+    Select the optimal regional depot based on MCD / NCR administrative zone.
+    Defaults to MCD South Zone Depot, Okhla if unspecified.
+    """
+    if not zone_name:
+        return NCR_DEPOTS["south"]
+
+    zn = zone_name.lower()
+    if "noida" in zn:
+        return NCR_DEPOTS["noida"]
+    elif "gurugram" in zn or "gurgaon" in zn:
+        return NCR_DEPOTS["gurugram"]
+    elif "ghaziabad" in zn or "east" in zn:
+        return NCR_DEPOTS["east"]
+    elif "central" in zn or "ndmc" in zn or "new delhi" in zn or "north" in zn:
+        return NCR_DEPOTS["central"]
+    return NCR_DEPOTS["south"]
+
+
+def calculate_traffic_congestion_factor(hour_of_day: int) -> float:
+    """
+    Dynamic hourly traffic congestion multiplier for Delhi NCR arterial roads.
+    Multiplies travel durations to account for peak-hour Delhi transit delays.
+    """
+    if 8 <= hour_of_day < 11:
+        return 1.45   # Morning peak rush (08:00 - 11:00)
+    elif 17 <= hour_of_day < 20:
+        return 1.55   # Evening peak rush (17:00 - 20:00)
+    elif 11 <= hour_of_day < 17:
+        return 1.15   # Midday commercial traffic
+    elif 5 <= hour_of_day < 8:
+        return 1.00   # Early morning optimal municipal collection shift
+    else:
+        return 0.90   # Night/off-peak clear transit
 
 
 @dataclass
@@ -71,6 +146,8 @@ class RoutingStats:
     cost_saved_inr: float        # Diesel @ ₹95/litre
     solver_used: str
     solve_time_ms: float
+    pm25_abated_grams: float = 0.0
+    nox_abated_grams: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -138,8 +215,8 @@ def _solve_with_ortools(
     """
     try:
         from ortools.constraint_solver import routing_enums_pb2, pywrapcp  # type: ignore
-    except ImportError:
-        logger.warning("OR-Tools not available — falling back to greedy solver")
+    except (ImportError, OSError, Exception) as exc:
+        logger.warning("OR-Tools solver unavailable (%s) — falling back to deterministic greedy solver", exc)
         return None
 
     t0 = time.monotonic()
@@ -376,6 +453,8 @@ def _compute_savings(
     fuel_saved = round(saved_km * DIESEL_L_PER_KM, 2)
     co2_emitted = round(fuel_used * CO2_KG_PER_LITRE, 2)
     co2_saved = round(fuel_saved * CO2_KG_PER_LITRE, 2)
+    pm25_abated = round(saved_km * PM25_G_PER_KM, 2)
+    nox_abated = round(saved_km * NOX_G_PER_KM, 2)
     cost_saved = round(fuel_saved * 95, 2)  # ₹95/litre diesel
     max_duration = max((r["estimated_duration_hours"] for r in routes), default=0.0)
 
@@ -394,6 +473,8 @@ def _compute_savings(
         cost_saved_inr=cost_saved,
         solver_used=solver_name,
         solve_time_ms=round(solve_time_ms, 1),
+        pm25_abated_grams=pm25_abated,
+        nox_abated_grams=nox_abated,
     )
 
 
@@ -402,12 +483,7 @@ def _compute_savings(
 # ---------------------------------------------------------------------------
 
 # Default MCD South Zone Depot
-DEFAULT_DEPOT = DepotConfig(
-    lat=28.5355,
-    lon=77.2510,
-    name="MCD South Zone Depot, Okhla",
-    zone="South Delhi",
-)
+DEFAULT_DEPOT = NCR_DEPOTS["south"]
 
 DRIVER_NAMES = [
     "Ramesh Kumar", "Suresh Yadav", "Mohan Singh", "Vijay Sharma",
@@ -423,6 +499,7 @@ def optimize_routes(
     truck_capacity_kg: int = 5000,
     skip_low_risk: bool = True,
     depot: Optional[DepotConfig] = None,
+    zone: Optional[str] = None,
 ) -> dict:
     """
     Main entry point for route optimisation.
@@ -433,13 +510,15 @@ def optimize_routes(
     num_trucks        : number of available trucks
     truck_capacity_kg : capacity per truck in kg
     skip_low_risk     : skip nodes predicted below LOW_RISK_THRESHOLD_PCT fill
-    depot             : depot location config (defaults to MCD Okhla)
+    depot             : depot location config (defaults to regional depot matching zone or MCD Okhla)
+    zone              : optional municipal administrative zone string
 
     Returns
     -------
-    dict with routes, stats, and skipped-node details
+    dict with routes, stats, clean air metrics, and skipped-node details
     """
-    depot = depot or DEFAULT_DEPOT
+    if depot is None:
+        depot = get_depot_for_zone(zone)
     t_total = time.monotonic()
 
     # ── 1. Filter nodes ──────────────────────────────────────────────────────
@@ -461,6 +540,8 @@ def optimize_routes(
             "total_distance_km": 0.0,
             "estimated_fuel_saved_liters": 0.0,
             "co2_saved_kg": 0.0,
+            "pm25_abated_grams": 0.0,
+            "nox_abated_grams": 0.0,
         }
 
     # Sort by risk priority so greedy assigns critical nodes first
@@ -522,4 +603,6 @@ def optimize_routes(
         "total_distance_km": stats.total_distance_km,
         "estimated_fuel_saved_liters": stats.fuel_saved_liters,
         "co2_saved_kg": stats.co2_saved_kg,
+        "pm25_abated_grams": stats.pm25_abated_grams,
+        "nox_abated_grams": stats.nox_abated_grams,
     }

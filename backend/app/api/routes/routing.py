@@ -93,12 +93,13 @@ async def optimize(
         f["latitude"] = n["latitude"]
         f["longitude"] = n["longitude"]
 
-    # Step 3 — Route optimisation
+    # Step 3 — Route optimisation with regional depot resolution
     result = optimize_routes(
         forecasts,
         num_trucks=body.num_trucks,
         truck_capacity_kg=body.truck_capacity_kg,
         skip_low_risk=body.skip_low_risk,
+        zone=body.zone,
     )
 
     # Step 4 — Serialise
@@ -126,6 +127,8 @@ async def optimize(
         total_distance_km=result["total_distance_km"],
         estimated_fuel_saved_liters=result["estimated_fuel_saved_liters"],
         co2_saved_kg=result["co2_saved_kg"],
+        pm25_abated_grams=result.get("pm25_abated_grams", 0.0),
+        nox_abated_grams=result.get("nox_abated_grams", 0.0),
         routes=routes,
     )
 

@@ -1,11 +1,32 @@
 """
-Waste Volume Forecasting Engine
-================================
-Uses an XGBoost model trained on historical MCD waste collection data.
-Features: day-of-week, month, population density, weather, is_festival, lag features.
+EcoFleet AI — Waste Volume Forecasting Engine
+==============================================
+Predictive machine learning service engineered for municipal solid waste management
+under the Municipal Solid Wastes (Management and Handling) Rules & Delhi Clean Air Action Plan.
 
-For the demo/pilot, if no trained model is found, falls back to a
-deterministic heuristic model so the API is fully functional out-of-the-box.
+Mathematical & Architectural Principles:
+----------------------------------------
+1. Objective Formulation:
+   Trained using XGBoost (Extreme Gradient Boosting) regression minimizing the regularized
+   squared loss with L2 regularization (Ridge) and L1 regularization (Lasso):
+   
+   $$\mathcal{L}(\theta) = \sum_{i=1}^{n} (y_i - \hat{y}_i)^2 + \sum_{k=1}^{K} \left( \gamma T_k + \frac{1}{2}\lambda \|w_k\|^2 + \alpha \|w_k\|_1 \right)$$
+
+2. Feature Schema ($X \in \mathbb{R}^{9}$):
+   - $x_0$: Day of Week (0 = Monday, ..., 6 = Sunday)
+   - $x_1$: Month of Year (1 - 12)
+   - $x_2$: Weekend Indicator ($\mathbb{I}[\text{dow} \ge 5]$)
+   - $x_3$: Monday Surge Indicator ($\mathbb{I}[\text{dow} = 0]$)
+   - $x_4$: Festival Flag ($\mathbb{I}[\text{Diwali, Eid, Chhath, Dussehra, etc.}]$)
+   - $x_5$: Precipitation Flag ($\mathbb{I}[\text{WMO code} \in \{61, 63, 65, 80, 81, 95\}]$)
+   - $x_6$: Extreme Weather Event ($\mathbb{I}[\text{WMO code} \in \{95, 96, 99\}]$)
+   - $x_7$: Population Density Normalized ($\min(\rho / 50000, 1.0)$)
+   - $x_8$: Bin Capacity Normalized ($C / 1000.0\text{ tons}$)
+
+3. Deterministic Heuristic Fallback:
+   When joblib model artifact is absent or during fast cold-start in-memory runs,
+   computes a deterministic domain-expert heuristic with reproducible pseudo-random noise
+   seeded on hash(node_id, date) to ensure 100% deterministic test reproducibility.
 """
 from __future__ import annotations
 
@@ -14,7 +35,7 @@ import math
 import os
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd

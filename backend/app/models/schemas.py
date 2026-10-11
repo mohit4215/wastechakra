@@ -122,6 +122,8 @@ class RoutingResponse(BaseModel):
     total_distance_km: float
     estimated_fuel_saved_liters: float
     co2_saved_kg: float
+    pm25_abated_grams: Optional[float] = 0.0
+    nox_abated_grams: Optional[float] = 0.0
     routes: List[TruckRoute]
 
 
