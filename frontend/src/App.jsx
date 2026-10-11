@@ -17,6 +17,7 @@ import CitizenReportPage from './pages/CitizenReportPage.jsx'
 import LandingPortal from './pages/LandingPortal.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import UnauthorizedPage from './pages/UnauthorizedPage.jsx'
+import DelhiWelcomeScreen from './components/common/DelhiWelcomeScreen.jsx'
 
 const NAV_MAIN = [
   { to: '/',          icon: LayoutDashboard, label: 'Command Console' },
@@ -40,8 +41,10 @@ function ProtectedRoute({ children }) {
 
 function AppShell() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      <DelhiWelcomeScreen />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route
         path="/about"
@@ -179,6 +182,7 @@ function AppShell() {
         }
       />
     </Routes>
+    </>
   )
 }
 

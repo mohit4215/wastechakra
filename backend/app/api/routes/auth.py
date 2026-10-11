@@ -7,12 +7,13 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.core.security import (
     TokenData,
     create_access_token,
@@ -29,8 +30,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED, summary="Register user")
-async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register user",
+)
+@limiter.limit("5/minute")
+async def register(
+    request: Request,
+    body: UserCreate,
+    db: AsyncSession = Depends(get_db),
+):
     """Register a new fleet manager, driver, or admin."""
     # Check if email already taken
     stmt = select(User).where(User.email == body.email.strip().lower())
@@ -45,7 +56,11 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
         email=body.email.strip().lower(),
         hashed_password=get_password_hash(body.password),
         full_name=body.full_name.strip(),
-        role=body.role.value if hasattr(body.role, "value") else str(body.role),
+        # Self-registration can never escalate privileges: new accounts always
+        # receive the least-privilege "driver" role regardless of the
+        # client-supplied value. Admin/manager accounts are provisioned by
+        # operators via FIRST_SUPERUSER_* seeding or direct DB assignment.
+        role="driver",
         is_active=True,
     )
     db.add(user)
@@ -55,7 +70,9 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token, summary="Login and obtain JWT token")
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     body: UserLogin,
     db: AsyncSession = Depends(get_db),
 ):

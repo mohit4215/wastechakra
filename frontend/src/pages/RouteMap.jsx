@@ -30,21 +30,21 @@ const depotIcon = L.divIcon({
   className: 'custom-depot-pin',
   html: `
     <div style="
-      background: #0f172a;
-      border: 2px solid #10b981;
+      background: #112820;
+      border: 2px solid #c59b27;
       border-radius: 50%;
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 16px rgba(16,185,129,0.7);
+      box-shadow: 0 0 16px rgba(197, 155, 39, 0.65);
     ">
-      <span style="font-size: 16px;">🏢</span>
+      <span style="font-size: 17px;">🏛️</span>
     </div>
   `,
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
 })
 
 function createTruckIcon(color, label) {

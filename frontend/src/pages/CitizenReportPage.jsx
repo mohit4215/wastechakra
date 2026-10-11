@@ -107,41 +107,98 @@ export default function CitizenReportPage() {
       </div>
 
       {submittedTicket ? (
-        <div style={styles.successCard}>
-          <div style={styles.checkCircle}>
-            <CheckCircle2 size={44} color="#10b981" />
+        <div style={styles.gazetteCertificate} className="brass-card">
+          {/* Official Indian Municipal Crest Header */}
+          <div style={styles.gazetteHeader}>
+            <div className="civic-stamp" style={{ marginBottom: '8px' }}>
+              <span>✦</span>
+              <span>MUNICIPAL CORPORATION OF DELHI · SWMS GAZETTE 2026</span>
+              <span>✦</span>
+            </div>
+            <div style={styles.gazetteCrestRow}>
+              <svg
+                width="36"
+                height="36"
+                viewBox="0 0 96 96"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="48" cy="48" r="44" stroke="#c59b27" strokeWidth="2.5" strokeDasharray="3 4" />
+                <circle cx="48" cy="48" r="38" stroke="#17372c" strokeWidth="1" strokeOpacity="0.4" />
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const angle = i * 30
+                  const rad = (angle * Math.PI) / 180
+                  return (
+                    <line
+                      key={i}
+                      x1="48"
+                      y1="48"
+                      x2={48 + 36 * Math.cos(rad)}
+                      y2={48 + 36 * Math.sin(rad)}
+                      stroke="#c59b27"
+                      strokeWidth="1.2"
+                    />
+                  )
+                })}
+                <circle cx="48" cy="48" r="8" fill="#c59b27" />
+                <circle cx="48" cy="48" r="4" fill="#071510" />
+              </svg>
+              <div>
+                <h2 style={styles.gazetteTitle} className="font-editorial">Official Civic Grievance Certificate</h2>
+                <div style={styles.gazetteSub}>Form VII · Under Solid Waste Management Rules 2026 & MCD Bye-laws</div>
+              </div>
+            </div>
           </div>
-          <h2 style={styles.successTitle}>Grievance Logged & Queued for Fleet Dispatch</h2>
-          <p style={styles.successSub}>
-            Your complaint has been verified and registered in the Delhi NCR live municipal routing engine.
-          </p>
 
-          <div style={styles.ticketBox}>
+          {/* Perforated Watermark Ticket Box */}
+          <div style={styles.gazetteTicketSlip}>
+            <div style={styles.stampOverlay}>
+              <div style={styles.officialStampPill}>
+                <span>OFFICIALLY REGISTERED</span>
+                <strong>MCD DISPATCH EN ROUTE</strong>
+                <span style={{ fontSize: '9px' }}>SEC. 14 SWM ACT</span>
+              </div>
+            </div>
+
             <div style={styles.ticketRow}>
-              <span>Complaint Tracking Ticket:</span>
-              <strong style={{ fontFamily: 'monospace', color: '#10b981' }}>
+              <span style={styles.ticketFieldLabel}>Official Grievance Docket ID:</span>
+              <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-terracotta)', fontSize: '13px' }}>
                 {submittedTicket.ticket_id}
               </strong>
             </div>
             <div style={styles.ticketRow}>
-              <span>Collection Node:</span>
-              <strong>{submittedTicket.node_id}</strong>
+              <span style={styles.ticketFieldLabel}>Designated Node Location:</span>
+              <strong style={{ color: 'var(--color-imperial-green)' }}>{submittedTicket.node_id}</strong>
             </div>
             <div style={styles.ticketRow}>
-              <span>Category:</span>
-              <strong style={{ textTransform: 'capitalize' }}>{submittedTicket.issue_type}</strong>
+              <span style={styles.ticketFieldLabel}>Waste Stream Classification:</span>
+              <strong style={{ textTransform: 'capitalize', color: 'var(--color-imperial-green)' }}>
+                {submittedTicket.issue_type}
+              </strong>
             </div>
             <div style={styles.ticketRow}>
-              <span>Reported Timestamp:</span>
-              <span>{new Date(submittedTicket.reported_at).toLocaleString()}</span>
+              <span style={styles.ticketFieldLabel}>Logged By / Contact:</span>
+              <span>{submittedTicket.reporter_name}</span>
+            </div>
+            <div style={styles.ticketRow}>
+              <span style={styles.ticketFieldLabel}>Filing Timestamp:</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px' }}>
+                {new Date(submittedTicket.reported_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
+              </span>
+            </div>
+            <div style={styles.ticketRow}>
+              <span style={styles.ticketFieldLabel}>Status in CVRP Engine:</span>
+              <strong style={{ color: '#047857' }}>
+                Priority Assigned to Shift #{new Date().getHours() < 14 ? 'Morning-1' : 'Evening-2'} Compactor
+              </strong>
             </div>
           </div>
 
-          {/* Stepper */}
+          {/* Progress Timeline Stepper */}
           <div style={styles.stepperWrap}>
             <div style={styles.stepItem(true)}>
               <div style={styles.stepCircle(true)}>✓</div>
-              <div style={styles.stepLabel}>Report Logged</div>
+              <div style={styles.stepLabel}>Gazetted</div>
             </div>
             <div style={styles.stepLine(true)} />
             <div style={styles.stepItem(true)}>
@@ -151,20 +208,28 @@ export default function CitizenReportPage() {
             <div style={styles.stepLine(false)} />
             <div style={styles.stepItem(false)}>
               <div style={styles.stepCircle(false)}>3</div>
-              <div style={styles.stepLabel}>Fleet Dispatched</div>
+              <div style={styles.stepLabel}>Truck Dispatched</div>
             </div>
             <div style={styles.stepLine(false)} />
             <div style={styles.stepItem(false)}>
               <div style={styles.stepCircle(false)}>4</div>
-              <div style={styles.stepLabel}>Resolved</div>
+              <div style={styles.stepLabel}>Clean Site Verified</div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+          {/* Action CTAs */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '28px', flexWrap: 'wrap' }}>
             <Link to="/routes" style={styles.viewRouteBtn}>
               <MapPin size={15} />
-              <span>Track Incident on Live Route Map</span>
+              <span>Track Incident on Live Dispatch Map</span>
             </Link>
+            <button
+              onClick={() => window.print()}
+              style={styles.printCertBtn}
+              title="Print official civic grievance document"
+            >
+              <span>Print Official Receipt</span>
+            </button>
             <button
               onClick={() => {
                 setSubmittedTicket(null)
@@ -172,8 +237,16 @@ export default function CitizenReportPage() {
               }}
               style={styles.anotherBtn}
             >
-              Submit Another Report
+              Lodge Another Ordinance
             </button>
+          </div>
+
+          {/* Civic Heritage Sign-off */}
+          <div style={styles.certSignoff}>
+            <span>Issued by Environment Management Services · Municipal Corporation of Delhi</span>
+            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--color-brass-dark)' }}>
+              "Crafted with Heart in Delhi NCR · स्वच्छ दिल्ली, स्वस्थ भारत"
+            </span>
           </div>
         </div>
       ) : (
@@ -582,52 +655,92 @@ const styles = {
     fontSize: '12px',
     color: '#475569',
   },
-  successCard: {
+  gazetteCertificate: {
     background: '#ffffff',
-    borderRadius: '20px',
-    padding: '36px',
-    maxWidth: '600px',
+    borderRadius: '16px',
+    padding: '36px 40px',
+    maxWidth: '680px',
     margin: '0 auto',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
-    border: '1px solid #e2e8f0',
+    boxShadow: '0 20px 50px rgba(17, 40, 32, 0.12)',
+    border: '2px solid #c59b27',
+    position: 'relative',
+    backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(248, 246, 240, 0.8) 0%, #ffffff 100%)',
   },
-  checkCircle: {
-    width: '60px',
-    height: '60px',
-    borderRadius: '50%',
-    background: '#ecfdf5',
+  gazetteHeader: {
+    textAlign: 'center',
+    marginBottom: '24px',
+    borderBottom: '1px solid #e2dac9',
+    paddingBottom: '18px',
+  },
+  gazetteCrestRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto 16px',
+    gap: '14px',
+    marginTop: '6px',
   },
-  successTitle: {
-    fontSize: '20px',
-    fontWeight: 800,
-    color: '#0f172a',
-    textAlign: 'center',
+  gazetteTitle: {
+    fontSize: '22px',
+    fontWeight: 700,
+    color: '#112820',
+    letterSpacing: '-0.3px',
+    margin: 0,
   },
-  successSub: {
-    fontSize: '13px',
-    color: '#64748b',
-    textAlign: 'center',
-    marginTop: '4px',
-    marginBottom: '24px',
+  gazetteSub: {
+    fontSize: '11px',
+    color: '#8c6d16',
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    marginTop: '2px',
   },
-  ticketBox: {
-    background: '#f8fafc',
-    borderRadius: '12px',
-    padding: '16px',
-    border: '1px solid #e2e8f0',
+  gazetteTicketSlip: {
+    background: '#faf8f3',
+    borderRadius: '10px',
+    padding: '20px 24px',
+    border: '1.5px dashed #c59b27',
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
-    marginBottom: '24px',
+    gap: '12px',
+    marginBottom: '26px',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  stampOverlay: {
+    position: 'absolute',
+    right: '18px',
+    top: '18px',
+    pointerEvents: 'none',
+    opacity: 0.85,
+    transform: 'rotate(-8deg)',
+  },
+  officialStampPill: {
+    border: '2px solid #b84a39',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    color: '#b84a39',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '10px',
+    fontWeight: 800,
+    letterSpacing: '0.06em',
+    background: 'rgba(252, 241, 239, 0.6)',
   },
   ticketRow: {
     display: 'flex',
     justifyContent: 'space-between',
     fontSize: '12.5px',
+    gap: '12px',
+    alignItems: 'center',
+    borderBottom: '1px solid #f2eee2',
+    paddingBottom: '8px',
+  },
+  ticketFieldLabel: {
+    color: '#5e6d66',
+    fontWeight: 600,
+    fontSize: '12px',
   },
   stepperWrap: {
     display: 'flex',
@@ -645,8 +758,9 @@ const styles = {
     width: '26px',
     height: '26px',
     borderRadius: '50%',
-    background: active ? '#10b981' : '#f1f5f9',
-    color: active ? '#ffffff' : '#94a3b8',
+    background: active ? '#112820' : '#f1ede1',
+    color: active ? '#f8f6f0' : '#899891',
+    border: active ? '1px solid #c59b27' : '1px solid #e2dac9',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -656,14 +770,36 @@ const styles = {
   stepLabel: {
     fontSize: '11px',
     fontWeight: 600,
-    color: '#64748b',
+    color: '#5e6d66',
   },
   stepLine: (active) => ({
     flex: 1,
     height: '2px',
-    background: active ? '#10b981' : '#e2e8f0',
+    background: active ? '#c59b27' : '#e2dac9',
     margin: '0 8px 18px',
   }),
+  printCertBtn: {
+    padding: '10px 18px',
+    borderRadius: '8px',
+    background: '#f8f6f0',
+    color: '#112820',
+    border: '1px solid #c59b27',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  certSignoff: {
+    marginTop: '24px',
+    paddingTop: '16px',
+    borderTop: '1px solid #e2dac9',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '11px',
+    color: '#5e6d66',
+    textAlign: 'center',
+  },
   anotherBtn: {
     padding: '10px 20px',
     borderRadius: '10px',

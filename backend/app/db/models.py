@@ -76,6 +76,23 @@ class WasteLog(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
+class CitizenReportModel(Base):
+    """Citizen grievance / overflow report submitted via the public portal."""
+
+    __tablename__ = "citizen_reports"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    ticket_id = Column(String(50), unique=True, index=True, nullable=False)
+    node_id = Column(String(50), index=True, nullable=False)
+    reporter_name = Column(String(100), nullable=True)
+    reporter_phone = Column(String(20), nullable=True)
+    issue_type = Column(String(50), default="overflow", nullable=False)
+    description = Column(Text, nullable=True)
+    estimated_overflow_kg = Column(Float, default=100.0, nullable=False)
+    status = Column(String(50), default="Queued for Next Collection Cycle", nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True, nullable=False)
+
+
 class RouteSession(Base):
     __tablename__ = "route_sessions"
 

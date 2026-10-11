@@ -33,6 +33,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import zlib
 from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -134,8 +135,11 @@ def _heuristic_forecast(
     weather_multiplier = _WEATHER_WEIGHTS.get(weather_code, 1.0)
     festival_multiplier = 1.40 if is_festival else 1.0
 
-    # Small deterministic noise based on node_id hash
-    seed = hash(node.get("node_id", "x") + str(target_date)) % 1000
+    # Small deterministic noise based on a stable hash of the node id and
+    # date. Python's built-in hash() is randomized per process (PYTHONHASHSEED),
+    # so it must not be used for values that are documented as reproducible
+    # across restarts — zlib.crc32 is stable everywhere.
+    seed = zlib.crc32(f"{node.get('node_id', 'x')}|{target_date}".encode()) % 1000
     noise = 1.0 + (seed - 500) / 5000.0   # ±10% noise
 
     fill_pct = base_fill * day_multiplier * weather_multiplier * festival_multiplier * noise

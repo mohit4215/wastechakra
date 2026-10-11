@@ -93,12 +93,19 @@ async def get_delhi_weather(date: str) -> dict:
         }
     except Exception as exc:
         logger.warning("Open-Meteo fetch failed for %s: %s — using clear sky default", date, exc)
-        payload = {
+        # Only cache successful upstream responses. Caching the fallback
+        # payload would freeze a transient outage into every forecast
+        # for the next hour.
+        return {
             "weather_code": 0,
             "description": "Clear sky (API unavailable)",
             "precipitation_mm": 0.0,
             "source": "fallback",
         }
 
+    # Bound the cache so long-lived processes cannot grow it unbounded.
+    if len(_cache) >= 512:
+        oldest_key = next(iter(_cache))
+        _cache.pop(oldest_key, None)
     _cache[date] = (time.time(), payload)
     return payload

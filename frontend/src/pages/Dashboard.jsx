@@ -64,26 +64,26 @@ const EVALUATOR_SCENARIOS = [
   },
 ]
 
-function StatCard({ icon: Icon, label, value, unit, subtext, color = '#10b981', trend }) {
+function StatCard({ icon: Icon, label, value, unit, subtext, color = '#112820', trend }) {
   return (
-    <div style={styles.card} className="hover-lift">
+    <div style={styles.card} className="brass-card hover-lift">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <div style={styles.statLabel}>{label}</div>
-          <div style={styles.statVal}>
+          <div style={styles.statVal} className="font-editorial">
             {value} <span style={styles.statUnit}>{unit}</span>
           </div>
           {subtext && <div style={styles.statSub}>{subtext}</div>}
         </div>
-        <div style={{ background: `${color}18`, borderRadius: '12px', padding: '10px' }}>
-          <Icon size={22} color={color} />
+        <div style={{ background: 'var(--color-parchment-warm)', border: '1px solid var(--color-brass)', borderRadius: '10px', padding: '10px' }}>
+          <Icon size={20} color="var(--color-brass-dark)" />
         </div>
       </div>
       {trend && (
         <div style={styles.trendRow}>
-          <TrendingUp size={13} color="#10b981" />
-          <span style={{ color: '#10b981', fontWeight: 600 }}>{trend}</span>
-          <span style={{ color: '#94a3b8' }}>vs fixed route baseline</span>
+          <TrendingUp size={13} color="var(--color-brass-dark)" />
+          <span style={{ color: 'var(--color-brass-dark)', fontWeight: 700 }}>{trend}</span>
+          <span style={{ color: 'var(--text-muted)' }}>vs fixed route baseline</span>
         </div>
       )}
     </div>
@@ -204,9 +204,19 @@ export default function Dashboard() {
       <div style={styles.contextBar}>
         <div style={styles.contextLeft}>
           <div style={styles.titleWrap}>
-            <h1 style={styles.h1}>Delhi NCR EcoFleet Command Center</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span className="civic-stamp">
+                <span>✦</span>
+                <span>MUNICIPAL CORPORATION OF DELHI · IMPERIAL DISPATCH DESK</span>
+                <span>✦</span>
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--color-brass-dark)', fontFamily: 'var(--font-mono)' }}>
+                GAZETTE #{today.replace(/-/g, '')}
+              </span>
+            </div>
+            <h1 style={styles.h1} className="font-serif">Delhi NCR Municipal Command & Routing Intelligence</h1>
             <p style={styles.subtitle}>
-              Greater Capital Region (50 Nodes across 5 Municipal Authorities) · Automated CVRP Route Optimization · {format(new Date(), 'dd MMMM yyyy')}
+              Greater Capital Region (50 Ward Nodes across 5 Municipal Authorities) · Automated CVRP Heuristic Solvers · {format(new Date(), 'dd MMMM yyyy')}
             </p>
           </div>
         </div>
@@ -744,31 +754,34 @@ const styles = {
   },
   card: {
     background: '#ffffff',
-    borderRadius: '16px',
+    borderRadius: '12px',
     padding: '22px',
-    border: '1px solid #e2e8f0',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    border: '1px solid var(--color-parchment-border)',
+    boxShadow: '0 2px 5px rgba(17, 40, 32, 0.03), 0 8px 20px -4px rgba(17, 40, 32, 0.04)',
+    position: 'relative',
   },
   statLabel: {
-    fontSize: '12.5px',
-    fontWeight: 600,
-    color: '#64748b',
+    fontSize: '12px',
+    fontWeight: 700,
+    color: 'var(--color-slate)',
     marginBottom: '4px',
+    letterSpacing: '0.02em',
+    textTransform: 'uppercase',
   },
   statVal: {
-    fontSize: '28px',
-    fontWeight: 800,
-    color: '#0f172a',
+    fontSize: '30px',
+    fontWeight: 700,
+    color: 'var(--color-imperial-green)',
     letterSpacing: '-0.5px',
   },
   statUnit: {
     fontSize: '14px',
     fontWeight: 600,
-    color: '#64748b',
+    color: 'var(--color-brass-dark)',
   },
   statSub: {
     fontSize: '11.5px',
-    color: '#94a3b8',
+    color: '#899891',
     marginTop: '3px',
   },
   trendRow: {
@@ -778,11 +791,11 @@ const styles = {
     fontSize: '11px',
     marginTop: '12px',
     paddingTop: '10px',
-    borderTop: '1px solid #f1f5f9',
+    borderTop: '1px solid var(--color-parchment-warm)',
   },
   simCalloutCard: {
-    background: 'linear-gradient(135deg, #061914 0%, #0d382c 100%)',
-    borderRadius: '16px',
+    background: 'radial-gradient(circle at top left, #17372c 0%, #0d2019 50%, #071510 100%)',
+    borderRadius: '14px',
     padding: '24px 28px',
     marginBottom: '24px',
     display: 'flex',
@@ -790,7 +803,8 @@ const styles = {
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: '18px',
-    boxShadow: '0 8px 24px rgba(6, 25, 20, 0.25)',
+    boxShadow: '0 12px 32px rgba(7, 21, 16, 0.35)',
+    border: '1px solid var(--color-brass)',
   },
   simLeft: {
     maxWidth: '620px',
