@@ -6,6 +6,7 @@ import {
   Phone, User, ShieldCheck, MapPin, Search, AlertCircle, Wrench,
   Trash2, RotateCcw, TrendingDown, IndianRupee, Zap, Sliders
 } from 'lucide-react'
+import ChakraLoader from '../components/common/ChakraLoader.jsx'
 
 export default function FleetPage() {
   const [fleet, setFleet] = useState(null)
@@ -108,6 +109,18 @@ export default function FleetPage() {
   const dailyRupeesSaved = Math.round(dailyLitersSaved * fuelPrice)
   const monthlySavingsInLakhs = Math.round(((dailyRupeesSaved * 26) / 100000) * 100) / 100
   const monthlyCo2AbatedTonnes = Math.round(((dailyLitersSaved * 2.68 * 26) / 1000) * 10) / 10
+
+  if (loading && !fleet) {
+    return (
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ChakraLoader
+          size={56}
+          label="Connecting to Fleet Telematics"
+          message="Querying municipal GPS beacons and compactor vehicle statuses across Delhi NCR depots…"
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={styles.container}>

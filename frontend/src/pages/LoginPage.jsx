@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Leaf, LogIn, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
+import ChakraLoader from '../components/common/ChakraLoader.jsx'
 
 export default function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -112,7 +113,10 @@ export default function LoginPage() {
 
           <button type="submit" disabled={loading} style={styles.submitBtn}>
             {loading ? (
-              <span>Connecting to Dispatch…</span>
+              <>
+                <ChakraLoader size={18} color="#ffffff" accentColor="#d8f3dc" />
+                <span>Authenticating with Municipal Dispatch…</span>
+              </>
             ) : (
               <>
                 <LogIn size={16} />

@@ -1,6 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* EcoFleet AI — Municipal Corporation of Delhi Design System */
+/* ==========================================================================
+   WasteChakra 2026 — Ecological Product Design System
+   "Raw Earth, High Precision" : Forest Obsidian, Warm Terracotta, Recycled Kraft,
+   Ochre Signals, and Muted Sage.
+   ========================================================================== */
+
 * {
   margin: 0;
   padding: 0;
@@ -8,115 +13,242 @@
 }
 
 :root {
-  --primary: #10b981;
-  --primary-hover: #059669;
-  --primary-light: #ecfdf5;
-  --primary-dark: #047857;
-  --primary-glow: rgba(16, 185, 129, 0.35);
+  /* Brand Typography */
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-  --accent-cyan: #06b6d4;
-  --accent-amber: #f59e0b;
-  --accent-purple: #8b5cf6;
+  /* Earth & Circular Material Palette */
+  --color-forest: #1b4332;
+  --color-forest-dark: #081c15;
+  --color-forest-deep: #05140e;
+  --color-sage: #52b788;
+  --color-sage-light: #d8f3dc;
+  --color-sage-soft: #edf7f0;
 
-  --bg-main: #f4f7f6;
+  --color-kraft: #f7f5f0;
+  --color-kraft-subtle: #efebe2;
+  --color-kraft-card: #ffffff;
+  --color-kraft-border: #e2ddd2;
+  --color-kraft-darker: #cfc8ba;
+
+  --color-terracotta: #c2593f;
+  --color-terracotta-soft: #fcf1ee;
+  --color-ochre: #d97706;
+  --color-ochre-soft: #fef7ed;
+  --color-charcoal: #1c2421;
+  --color-stone: #40514e;
+  --color-muted: #6b7280;
+
+  /* Compatibility bindings for existing modules */
+  --primary: #1b4332;
+  --primary-hover: #2d6a4f;
+  --primary-light: #edf7f0;
+  --primary-dark: #081c15;
+  --primary-glow: rgba(82, 183, 136, 0.25);
+
+  --accent-cyan: #2a9d8f;
+  --accent-amber: #e76f51;
+  --accent-purple: #7209b7;
+
+  --bg-main: var(--color-kraft);
   --bg-card: #ffffff;
-  --bg-sidebar: #061914;
-  --bg-sidebar-card: #0c2720;
-  --sidebar-border: #143e33;
+  --bg-sidebar: #05140e;
+  --bg-sidebar-card: #0c231a;
+  --sidebar-border: #133a2c;
 
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-light: #94a3b8;
+  --text-main: var(--color-charcoal);
+  --text-muted: #596a65;
+  --text-light: #839791;
 
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
+  --border: var(--color-kraft-border);
+  --border-light: #ece8df;
 
-  --critical: #ef4444;
-  --high: #f97316;
-  --medium: #f59e0b;
-  --low: #10b981;
+  /* Municipal SWM Risk States */
+  --critical: #dc2626;
+  --high: #ea580c;
+  --medium: #d97706;
+  --low: #1b4332;
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--bg-main);
   color: var(--text-main);
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(82, 183, 136, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(194, 89, 63, 0.03) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
 
 code, .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
-/* Scrollbar customization */
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Custom organic tactile paper borders & shadows */
+.kraft-card {
+  background: #ffffff;
+  border: 1px solid var(--color-kraft-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(27, 67, 50, 0.04), 0 6px 16px -4px rgba(27, 67, 50, 0.03);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.kraft-card:hover {
+  border-color: #cfc8ba;
+  box-shadow: 0 4px 12px rgba(27, 67, 50, 0.07);
+}
+
+/* Editorial Badge */
+.eco-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--color-kraft-subtle);
+  color: var(--color-forest);
+  border: 1px solid var(--color-kraft-border);
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f1ede3;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: #d4ccbd;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #b8ac99;
 }
 
-/* Leaflet map styles */
+/* Leaflet Container customization */
 .leaflet-container {
   height: 100%;
   width: 100%;
-  border-radius: 16px;
+  border-radius: 14px;
   font-family: inherit;
   z-index: 1;
 }
 
-/* Custom modern Leaflet popup styling */
 .leaflet-popup-content-wrapper {
-  background: #0f172a !important;
-  color: #f8fafc !important;
-  border-radius: 14px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
-  border: 1px solid #334155 !important;
+  background: #081c15 !important;
+  color: #f7f5f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid #1b4332 !important;
   padding: 4px !important;
 }
+
 .leaflet-popup-tip {
-  background: #0f172a !important;
+  background: #081c15 !important;
 }
+
 .leaflet-popup-content {
   margin: 12px 14px !important;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Tactile button micro-interactions */
+button {
+  font-family: inherit;
+  transition: all 0.14s ease-in-out;
+}
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
 }
 
 /* Card hover animation */
 .hover-lift {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08), 0 6px 12px -4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 20px -4px rgba(27, 67, 50, 0.08);
 }
 
-/* Animations */
+/* Keyframes for WasteChakra Circular Transformation */
+@keyframes chakra-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes chakra-pulse {
+  0%, 100% {
+    transform: scale(0.96);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.65;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #edeae2 25%, #f6f4ee 50%, #edeae2 75%) !important;
+  background-size: 200% 100% !important;
+  animation: shimmer 1.8s infinite !important;
+}
+
+/* Pulse indicators */
 @keyframes pulse-dot {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(82, 183, 136, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(82, 183, 136, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(82, 183, 136, 0); }
 }
 
 @keyframes pulse-critical {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
-  70% { transform: scale(1.1); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-@keyframes route-flow {
-  0% { stroke-dashoffset: 24; }
-  100% { stroke-dashoffset: 0; }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.8); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 9px rgba(220, 38, 38, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }
 
 .live-pulse {
@@ -127,29 +259,17 @@ code, .font-mono {
   animation: pulse-critical 1.6s infinite;
 }
 
-.sim-running-indicator {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981;
-  animation: pulse-dot 1.5s infinite;
-}
-
-/* Glassmorphism utility */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-/* Button micro-interactions */
-button {
-  font-family: inherit;
-  transition: all 0.15s ease-in-out;
-}
-button:active {
-  transform: scale(0.97);
+/* Accessible reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .chakra-spin-icon {
+    animation: none !important;
+  }
 }

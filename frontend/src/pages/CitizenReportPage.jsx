@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { fetchNodes, reportBinIssue, fetchReportedIssues } from '../services/api.js'
 import { Link } from 'react-router-dom'
+import ChakraLoader from '../components/common/ChakraLoader.jsx'
 
 const SAMPLE_AI_SCENARIOS = [
   {
@@ -246,8 +247,17 @@ export default function CitizenReportPage() {
               </div>
 
               <button type="submit" disabled={loading} style={styles.submitBtn}>
-                <Send size={15} />
-                <span>{loading ? 'Submitting Grievance…' : 'Submit Verified Grievance'}</span>
+                {loading ? (
+                  <>
+                    <ChakraLoader size={18} color="#ffffff" accentColor="#a7f3d0" />
+                    <span>Transmitting to MCD Command Console…</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} />
+                    <span>Submit Verified Grievance</span>
+                  </>
+                )}
               </button>
             </form>
           </div>

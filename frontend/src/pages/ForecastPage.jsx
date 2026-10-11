@@ -10,6 +10,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   BarChart, Bar, Cell
 } from 'recharts'
+import ChakraLoader from '../components/common/ChakraLoader.jsx'
 
 const RISK_BADGES = {
   critical: { bg: '#fee2e2', text: '#dc2626', label: 'CRITICAL (>85%)' },
@@ -73,6 +74,18 @@ export default function ForecastPage() {
       volume: f.predicted_volume_kg,
       capacity: f.capacity_kg,
     }))
+
+  if (loading && !forecast) {
+    return (
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ChakraLoader
+          size={56}
+          label="Running XGBoost ML Inference"
+          message="Projecting 50-node waste accumulation under weather, demographic, and festival parameters…"
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={styles.container}>

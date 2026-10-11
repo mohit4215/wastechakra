@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area, CartesianGrid
 } from 'recharts'
+import ChakraLoader, { SkeletonBlock } from '../components/common/ChakraLoader.jsx'
 
 const RISK_COLORS = {
   critical: '#ef4444',
@@ -184,6 +185,18 @@ export default function Dashboard() {
   const criticalNodes = (forecast?.forecasts || []).filter(
     (n) => n.risk_level === 'critical' || n.risk_level === 'high'
   )
+
+  if (loading && !forecast) {
+    return (
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ChakraLoader
+          size={56}
+          label="Synthesizing Municipal Telemetry"
+          message="Aggregating 50 Delhi NCR smart collection nodes and computing CVRP dispatch heuristics…"
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={styles.page}>

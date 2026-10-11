@@ -9,6 +9,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend
 } from 'recharts'
+import ChakraLoader from '../components/common/ChakraLoader.jsx'
 
 export default function AnalyticsPage() {
   const [data, setData] = useState(null)
@@ -31,6 +32,18 @@ export default function AnalyticsPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  if (loading && !data) {
+    return (
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ChakraLoader
+          size={56}
+          label="Compiling SWM Rules 2026 ESG Audit"
+          message="Aggregating diverted tonnage, emissions abatement ledger, and zonal compliance indices…"
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={styles.container}>
