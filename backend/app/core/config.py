@@ -1,14 +1,19 @@
-"""
-Application configuration via environment variables.
-"""
-from pydantic_settings import BaseSettings, SettingsConfigDict
+"""Application configuration via environment variables."""
+from __future__ import annotations
+
+import warnings
 from typing import List
+
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "EcoFleet AI"
     DEBUG: bool = False
+    ENVIRONMENT: str = "development"
+    LOG_LEVEL: str = "INFO"
 
     # CORS — extend via CORS_ORIGINS env var in production
     # e.g. CORS_ORIGINS=["https://wastechakra.vercel.app","http://localhost:5173"]
@@ -27,7 +32,7 @@ class Settings(BaseSettings):
     )
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://ecofleet:ecofleet@localhost:5432/ecofleet"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./ecofleet.db"
 
     # ML Model paths
     FORECAST_MODEL_PATH: str = "app/ml/models/waste_forecast_model.joblib"
@@ -58,6 +63,25 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_FULL_NAME: str = "EcoFleet Administrator"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_security_configuration(self) -> "Settings":
+        is_production = self.ENVIRONMENT.lower() == "production" and not self.DEBUG
+        using_default_secret = self.JWT_SECRET_KEY == "dev-only-secret-key-replace-in-production-min-32-chars!!"
+
+        if is_production:
+            if using_default_secret or len(self.JWT_SECRET_KEY) < 32:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set to a strong value (>=32 chars) in production."
+                )
+            if self.FIRST_SUPERUSER_PASSWORD == "EcoFleet@2026":
+                warnings.warn(
+                    "FIRST_SUPERUSER_PASSWORD is using the default demo value in production. "
+                    "Please rotate it before exposing the service.",
+                    RuntimeWarning,
+                    stacklevel=1,
+                )
+        return self
 
 
 settings = Settings()

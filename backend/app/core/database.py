@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from typing import AsyncGenerator
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -89,6 +89,17 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+async def check_database_connectivity() -> bool:
+    """Best-effort database readiness probe."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return True
+    except Exception as exc:
+        logger.warning("Database readiness check failed: %s", exc)
+        return False
 
 
 # ---------------------------------------------------------------------------

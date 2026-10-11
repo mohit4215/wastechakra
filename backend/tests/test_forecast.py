@@ -29,6 +29,16 @@ async def test_daily_forecast_with_festival(client, auth_headers):
 
 
 @pytest.mark.asyncio
+async def test_forecast_engine_status(client, auth_headers):
+    response = await client.get("/api/forecast/engine", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] in ("trained_model", "heuristic_fallback")
+    assert "model_path" in data
+    assert isinstance(data["model_loaded"], bool)
+
+
+@pytest.mark.asyncio
 async def test_daily_forecast_invalid_date(client, auth_headers):
     response = await client.get("/api/forecast/daily?forecast_date=not-a-date", headers=auth_headers)
     assert response.status_code == 422

@@ -49,7 +49,7 @@ jobs:
 
           echo "==> Waiting for backend to become healthy"
           for i in $(seq 1 15); do
-            if curl -sf http://localhost:8000/health > /dev/null; then
+            if curl -sf http://localhost:8000/health/ready > /dev/null; then
               echo "Health check passed on attempt ${i}"
               exit 0
             fi
@@ -68,7 +68,7 @@ jobs:
         run: |
           echo "Verifying /health endpoint is reachable from CI runner..."
           curl -sf --retry 5 --retry-delay 5 \
-            "http://${{ secrets.VPS_HOST }}:8000/health" | jq .
+            "http://${{ secrets.VPS_HOST }}:8000/health/ready" | jq .
 
       - name: Cleanup SSH key
         if: always()
