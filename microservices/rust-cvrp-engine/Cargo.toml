@@ -1,0 +1,13 @@
+[package]
+name = "ecofleet-cvrp-solver"
+version = "0.1.0"
+edition = "2021"
+authors = ["Team Love Nature <admin@ecofleet.ai>"]
+description = "High-performance Capacitated Vehicle Routing Problem (CVRP) native solver"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rayon = "1.8"
+log = "0.4"
+env_logger = "0.10"
